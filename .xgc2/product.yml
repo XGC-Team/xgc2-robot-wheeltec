@@ -1,9 +1,10 @@
 schema: xgc2.product.v1
 id: xgc2-wheeltec-onboard-ros1
 name: XGC2 Wheeltec Onboard ROS1
-version: 0.1.0-1
+version: 0.1.0-2
 kind: ros1-apt
-summary: ROS Melodic Wheeltec serial chassis, swarm bridge integration, and manual onboard bringup.
+summary: ROS Melodic Wheeltec serial chassis, swarm bridge integration, and manual
+  onboard bringup.
 groups:
 - robotics
 - wheeltec
@@ -33,20 +34,31 @@ apt:
   - ros-melodic-swarm-ros-bridge (>= 1.1.0-7)
   - ros-melodic-tf
 usage:
-  install: |
-    sudo apt update
+  install: 'sudo apt update
+
     sudo apt install ros-melodic-xgc2-wheeltec-onboard
-  smoke_test: |
-    rospack find turn_on_wheeltec_robot
+
+    '
+  smoke_test: 'rospack find turn_on_wheeltec_robot
+
     roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch
+
     rospack find wheeltec_onboard_bringup
+
     roslaunch --files wheeltec_onboard_bringup wheeltec_onboard.launch
-  notes: |
-    The product installs only the current serial chassis driver, its Wheeltec
+
+    '
+  notes: 'The product installs only the current serial chassis driver, its Wheeltec
+
     bridge wrapper, and a manual aggregate bringup. The generic bridge binary
+
     remains the independently released ros-melodic-swarm-ros-bridge package.
+
     No systemd service, external HandsFree IMU, or legacy navigation launch is
+
     installed until those vehicle-specific components are validated on hardware.
+
+    '
 ownership:
   paths:
   - /opt/ros/melodic/share/turn_on_wheeltec_robot
@@ -61,4 +73,4 @@ release:
   dependency_policy:
     xgc2-swarm-ros-bridge: verify
   apt_versions:
-    bionic: 0.1.0-1
+    bionic: 0.1.0-2
