@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-DOCKER_IMAGE="${DOCKER_IMAGE:-ros:melodic-ros-base-bionic}"
+DOCKER_IMAGE="${DOCKER_IMAGE:-ghcr.io/xgc-team/xgc2-images/xgc2-build-bionic-ros-melodic:1.0.0}"
 WORK_DIR="${WORK_DIR:-$REPO_ROOT/.work/docker}"
 OUTPUT_DIR="${OUTPUT_DIR:-$REPO_ROOT/debs}"
 INSTALL_CHECK="${INSTALL_CHECK:-true}"
@@ -44,9 +44,6 @@ docker run "${docker_args[@]}" "$DOCKER_IMAGE" bash -lc '
     set -euo pipefail
 
     export DEBIAN_FRONTEND=noninteractive
-    apt-get update
-    apt-get install -y --no-install-recommends build-essential ca-certificates cmake curl dpkg-dev fakeroot gnupg python3-yaml rsync ros-melodic-catkin ros-melodic-geometry-msgs ros-melodic-nav-msgs ros-melodic-roscpp ros-melodic-roslaunch ros-melodic-rospack ros-melodic-sensor-msgs ros-melodic-serial ros-melodic-std-msgs ros-melodic-tf
-
     mkdir -p /etc/apt/keyrings
     curl -fsSL "$XGC2_APT_BASE_URL/xgc2-archive-keyring.gpg" -o /etc/apt/keyrings/xgc2-archive-keyring.gpg
     echo "deb [signed-by=/etc/apt/keyrings/xgc2-archive-keyring.gpg] $XGC2_APT_BASE_URL $XGC2_APT_DISTRIBUTION main" > /etc/apt/sources.list.d/xgc2.list
