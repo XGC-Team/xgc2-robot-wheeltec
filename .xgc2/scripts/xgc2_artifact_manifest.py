@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-BUILD_SCHEMA = "xgc2.build-artifact.v1"
+BUILD_SCHEMA = "xgc2.build-artifact.v2"
 
 
 def sha256(path):

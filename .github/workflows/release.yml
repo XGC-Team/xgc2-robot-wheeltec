@@ -29,16 +29,6 @@ on:
         required: false
         default: ""
         type: string
-      run_cpp_quality:
-        description: Run C++ quality checks
-        required: true
-        default: false
-        type: boolean
-      run_source_tests:
-        description: Run source tests
-        required: true
-        default: false
-        type: boolean
 
 permissions:
   actions: read
@@ -78,39 +68,25 @@ jobs:
           echo "apt_overlay_url requires a dependency_set_digest" >&2
           exit 1
         fi
-
   validate-release-inputs:
     needs: prepare-contract
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-
-    - name: Validate expected version and source SHA
-      run: |
-        set -euo pipefail
-        version="$(awk -F': *' '/^version:[[:space:]]*/ {print $2; exit}' .xgc2/product.yml)"
-        test -n "$version"
-        test "$version" = "${{ inputs.expected_version }}"
-        test "$(git rev-parse HEAD)" = "${{ inputs.expected_source_sha }}"
-
   cpp-quality:
-    if: ${{ inputs.run_cpp_quality }}
     needs: validate-release-inputs
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - name: Run lightweight C++ quality checks
       run: git diff --check HEAD
-
   source-tests:
-    if: ${{ inputs.run_source_tests }}
     needs: validate-release-inputs
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - name: Run source package checks
       run: .xgc2/scripts/check_package_compliance.sh
-
   build-debs:
     needs: validate-release-inputs
     strategy:
@@ -124,6 +100,19 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
     - uses: actions/checkout@v4
+
+
+
+    - name: Validate expected version and source SHA
+      run: |
+        set -euo pipefail
+        version="$(awk -F': *' '/^version:[[:space:]]*/ {print $2; exit}' .xgc2/product.yml)"
+        test -n "$version"
+        test "$version" = "${{ inputs.expected_version }}"
+        test "$(git rev-parse HEAD)" = "${{ inputs.expected_source_sha }}"
+
+
+
 
     - name: Build and install-check Debian packages
       run: |
