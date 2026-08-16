@@ -16,11 +16,13 @@ defaults:
 jobs:
   package-compliance:
     runs-on: ubuntu-latest
-    container: ghcr.io/xgc-team/xgc2-images/xgc2-build-bionic-dev:1.0.0
+    container: ghcr.io/xgc-team/xgc2-images/xgc2-build-focal-dev:1.0.0
     steps:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 2
+    - name: Check package metadata and source files
+      run: .xgc2/scripts/check_package_compliance.sh
   build-debs:
     strategy:
       fail-fast: false
@@ -33,11 +35,6 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
     - uses: actions/checkout@v4
-
-
-    - name: Check package metadata and source files
-      run: .xgc2/scripts/check_package_compliance.sh
-
 
     - name: Build and install-check Debian packages
       run: |
