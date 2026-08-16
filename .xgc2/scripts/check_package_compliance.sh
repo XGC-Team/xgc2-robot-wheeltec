@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 cd "$REPO_ROOT"
 
-git diff --check
+git --git-dir="${REPO_ROOT}/.git" --work-tree="${REPO_ROOT}" diff --check
 shellcheck scripts/install_wheeltec_controller_udev_rule.sh .xgc2/scripts/build_debs_in_docker.sh .xgc2/scripts/check_installed_packages.sh .xgc2/scripts/check_package_compliance.sh .xgc2/scripts/package_debs.sh
 xmllint --noout package.xml launch/wheeltec_robot.launch onboard/ros1/src/communication/wheeltec_swarm_ros_bridge/package.xml onboard/ros1/src/communication/wheeltec_swarm_ros_bridge/launch/wheeltec_swarm_ros_bridge.launch onboard/ros1/src/bringup/wheeltec_onboard_bringup/package.xml onboard/ros1/src/bringup/wheeltec_onboard_bringup/launch/wheeltec_onboard.launch
 
