@@ -11,7 +11,7 @@ shellcheck scripts/install_wheeltec_controller_udev_rule.sh .xgc2/scripts/build_
 xmllint --noout package.xml launch/wheeltec_robot.launch onboard/ros1/src/communication/wheeltec_swarm_ros_bridge/package.xml onboard/ros1/src/communication/wheeltec_swarm_ros_bridge/launch/wheeltec_swarm_ros_bridge.launch onboard/ros1/src/bringup/wheeltec_onboard_bringup/package.xml onboard/ros1/src/bringup/wheeltec_onboard_bringup/launch/wheeltec_onboard.launch
 
 grep -q '^id: xgc2-wheeltec-onboard-ros1$' .xgc2/product.yml
-grep -q '^version: 0.1.0-2$' .xgc2/product.yml
+grep -q '^version: 0.1.0-3$' .xgc2/product.yml
 grep -q 'ros-melodic-xgc2-wheeltec-onboard' .xgc2/product.yml
 grep -q 'ros-melodic-swarm-ros-bridge (>= 1.1.0-7)' .xgc2/product.yml
 grep -q '<name>turn_on_wheeltec_robot</name>' package.xml
