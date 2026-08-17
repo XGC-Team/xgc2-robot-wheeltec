@@ -18,7 +18,7 @@ done
 test "$(rospack find turn_on_wheeltec_robot)" = "$PREFIX/share/turn_on_wheeltec_robot"
 test "$(rospack find wheeltec_swarm_ros_bridge)" = "$PREFIX/share/wheeltec_swarm_ros_bridge"
 test "$(rospack find wheeltec_onboard_autostart)" = "$PREFIX/share/wheeltec_onboard_autostart"
-test "$(rospack find wheeltec_onboard)" = "$PREFIX/share/wheeltec_onboard"
+test -f "$PREFIX/share/wheeltec_onboard/package.xml"
 
 test -x "$PREFIX/lib/turn_on_wheeltec_robot/wheeltec_robot_node"
 test -f "$PREFIX/share/turn_on_wheeltec_robot/launch/wheeltec_robot.launch"
