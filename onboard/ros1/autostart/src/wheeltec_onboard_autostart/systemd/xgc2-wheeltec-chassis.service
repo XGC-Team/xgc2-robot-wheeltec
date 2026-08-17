@@ -1,0 +1,21 @@
+[Unit]
+Description=XGC2 Wheeltec chassis (serial driver)
+After=network.target local-fs.target systemd-udevd.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=wheeltec
+Group=wheeltec
+SupplementaryGroups=dialout
+WorkingDirectory=/home/wheeltec
+EnvironmentFile=-/etc/xgc2/wheeltec/onboard.env
+ExecStart=/opt/ros/melodic/lib/wheeltec_onboard_autostart/start-chassis
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+TimeoutStopSec=15
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

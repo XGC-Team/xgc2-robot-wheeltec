@@ -1,55 +1,74 @@
 # XGC2 Wheeltec Robot
 
-This repository directly maintains the ROS 1 Wheeltec serial chassis driver
-and its XGC2 vehicle integration.
+Vehicle-true ROS Melodic runtime for the Wheeltec mecanum onboard computer.
 
-## Packaged ROS 1 surface
+Layout matches AgileX Scout: sibling workspaces under `onboard/ros1/`.
+Source of truth for field numbers is the usage-repo live page
+`docs/field/wheeltec/`, not this product tree.
 
-| Debian package | ROS package | Purpose |
+## Vehicle
+
+| Item | Value |
+| --- | --- |
+| Host | `wheeltec` |
+| Board | NVIDIA Jetson Nano |
+| OS | Ubuntu 18.04 (Bionic) |
+| ROS | Melodic |
+| Arch | arm64 |
+
+```text
+onboard/ros1/chassis          turn_on_wheeltec_robot
+onboard/ros1/communication    wheeltec_swarm_ros_bridge
+onboard/ros1/sensors          lidar only (lslidar_*)
+onboard/ros1/autostart        compose + install-only units
+```
+
+`apt install ros-melodic-xgc2-wheeltec-onboard` installs chassis, bridge,
+and autostart. No unit is enabled or started. Lidar is a separate package.
+
+```text
+xgc2-wheeltec-chassis.service
+  start-chassis: wait /dev/wheeltec_controller
+  wheeltec_onboard_autostart/chassis.launch
+    wheeltec_robot_node  /imu /odom /PowerVoltage /cmd_vel
+xgc2-wheeltec-swarm-ros-bridge.service
+  wheeltec_onboard_autostart/swarm.launch
+    send /imu :3001 20 Hz, /PowerVoltage :3002 1 Hz
+    recv /cmd_vel from qgc :3005
+xgc2-wheeltec-lidar.service
+  optional; needs ros-melodic-xgc2-wheeltec-lslidar
+```
+
+## Packages
+
+| Debian package | ROS package | Role |
 | --- | --- | --- |
-| ros-melodic-xgc2-wheeltec-driver | turn_on_wheeltec_robot | Wheeltec serial chassis node and its supported launch entry point |
-| ros-melodic-xgc2-wheeltec-swarm-ros-bridge | wheeltec_swarm_ros_bridge | Wheeltec topic and peer configuration for the generic bridge |
-| ros-melodic-xgc2-wheeltec-onboard | wheeltec_onboard_bringup | Aggregated manual chassis and bridge bringup |
+| `ros-melodic-xgc2-wheeltec-driver` | `turn_on_wheeltec_robot` | Serial chassis node |
+| `ros-melodic-xgc2-wheeltec-swarm-ros-bridge` | `wheeltec_swarm_ros_bridge` | YAML+launch; binary from APT `swarm_ros_bridge` |
+| `ros-melodic-xgc2-wheeltec-onboard-autostart` | `wheeltec_onboard_autostart` | Compose launches and units; install-only |
+| `ros-melodic-xgc2-wheeltec-onboard` | `wheeltec_onboard` | Install-set meta; no lidar Depends |
+| `ros-melodic-xgc2-wheeltec-lslidar-msgs` | `lslidar_msgs` | Optional |
+| `ros-melodic-xgc2-wheeltec-lslidar-driver` | `lslidar_driver` | Optional `/scan` |
+| `ros-melodic-xgc2-wheeltec-lslidar` | `lslidar` | Optional meta |
 
-The aggregate package is the normal installation entry point:
+```bash
+sudo apt-get install ros-melodic-xgc2-wheeltec-onboard
+# postinst installs units and disables vendor boot units; it does not enable
+# product units. Site peer yaml: /etc/xgc2/wheeltec/ros_topics.yaml
+sudo systemctl enable --now xgc2-wheeltec-chassis.service
+sudo systemctl enable --now xgc2-wheeltec-swarm-ros-bridge.service
+# do not enable xgc2-wheeltec-lidar.service unless the lidar package is installed
+# optional:
+# sudo apt-get install ros-melodic-xgc2-wheeltec-lslidar
+```
 
-    sudo apt update
-    sudo apt install ros-melodic-xgc2-wheeltec-onboard
+Driver postinst copies packaged udev rules when those filenames are absent.
 
-Start the currently supported vehicle surface manually:
-
-    roslaunch wheeltec_onboard_bringup wheeltec_onboard.launch
-
-The default bridge configuration sends /imu at 20 Hz and receives /cmd_vel
-from the configured qgc peer.  Edit a copied configuration file and pass it as
-bridge_config_file when a vehicle uses different addresses or ports.
-
-## Hardware setup
-
-The chassis driver defaults to /dev/wheeltec_controller at 115200 baud.  A
-manual installer for the known legacy controller USB UART rule is included:
-
-    sudo /opt/ros/melodic/share/turn_on_wheeltec_robot/scripts/install_wheeltec_controller_udev_rule.sh
-
-Inspect the USB attributes on the physical vehicle before running that command.
-The rule is intentionally not installed or enabled automatically.
-
-## Scope
-
-Only the serial chassis driver, its IMU and odometry topics, the configured
-swarm bridge, and their aggregate launch are part of the current product.
-Legacy navigation, camera, LiDAR, map, and external HandsFree IMU resources
-remain source references and are not installed as supported runtime features.
-There is no systemd autostart package yet.
-
-See docs/productization-status.md for the current implementation and physical
-vehicle validation boundary.
+`docs/` keeps product notes. Field notes live in the main repo
+`docs/field/wheeltec/`. Vendor navigation/camera/URDF leftovers are in
+`vendor/legacy/` and are not packaged.
 
 ## Upstream provenance
 
-- Upstream: <https://github.com/WheelBoard/turn_on_wheeltec_robot>
-- Imported commit: c3a49e9 (Delete map_saver.launch)
-- License: BSD-2-Clause; the upstream LICENSE file is retained unchanged.
-
-The upstream project is no longer actively maintained. XGC2 hosts the source
-here so future maintenance can be reviewed and released from this repository.
+- Chassis: <https://github.com/WheelBoard/turn_on_wheeltec_robot> (BSD-2-Clause)
+- Lidar: LeiShen `lsx10` / `lslidar_driver` (GPL-3.0)

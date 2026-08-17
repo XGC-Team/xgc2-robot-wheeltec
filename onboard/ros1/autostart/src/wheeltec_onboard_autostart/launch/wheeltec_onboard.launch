@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Compatibility alias. Prefer wheeltec.launch. -->
+  <include file="$(find wheeltec_onboard_autostart)/launch/wheeltec.launch" />
+</launch>

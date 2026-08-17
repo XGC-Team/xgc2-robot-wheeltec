@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROS_DISTRO="${ROS_DISTRO:-melodic}"
+ROS_PREFIX="/opt/ros/${ROS_DISTRO}"
+# shellcheck disable=SC1090,SC1091
+source "${ROS_PREFIX}/setup.bash"
+
+export ROS_MASTER_URI="${ROS_MASTER_URI:-http://127.0.0.1:11311}"
+export ROS_HOSTNAME="${ROS_HOSTNAME:-localhost}"
+
+WAIT="${ROS_PREFIX}/lib/wheeltec_onboard_autostart/wait-device"
+"${WAIT}" /dev/wheeltec_controller --timeout "${CONTROLLER_WAIT_TIMEOUT:-60}"
+
+exec roslaunch wheeltec_onboard_autostart chassis.launch

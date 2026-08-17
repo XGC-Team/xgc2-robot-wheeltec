@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-DOCKER_IMAGE="${DOCKER_IMAGE:-ghcr.io/xgc-team/xgc2-images/xgc2-build-bionic-ros-melodic:1.0.0}"
+DOCKER_IMAGE="${DOCKER_IMAGE:-ghcr.io/xgc-team/xgc2-images/xgc2-build-bionic-full-melodic:1.0.0}"
 WORK_DIR="${WORK_DIR:-$REPO_ROOT/.work/docker}"
 OUTPUT_DIR="${OUTPUT_DIR:-$REPO_ROOT/debs}"
 INSTALL_CHECK="${INSTALL_CHECK:-true}"
@@ -55,11 +55,15 @@ docker run "${docker_args[@]}" "$DOCKER_IMAGE" bash -lc '
 
     BUILD_ROOT="$(mktemp -d /workspace/work/wheeltec.XXXXXX)"
     WORKSPACE="$BUILD_ROOT/workspace"
-    mkdir -p "$WORKSPACE/src/turn_on_wheeltec_robot" "$WORKSPACE/src/wheeltec_swarm_ros_bridge" "$WORKSPACE/src/wheeltec_onboard_bringup"
+    mkdir -p "$WORKSPACE/src"
 
-    rsync -a --exclude .git --exclude .github --exclude .xgc2 --exclude .ci --exclude .work --exclude debs --exclude docs --exclude onboard --exclude ugv-auto-launch /workspace/repo/ "$WORKSPACE/src/turn_on_wheeltec_robot/"
-    rsync -a /workspace/repo/onboard/ros1/src/communication/wheeltec_swarm_ros_bridge/ "$WORKSPACE/src/wheeltec_swarm_ros_bridge/"
-    rsync -a /workspace/repo/onboard/ros1/src/bringup/wheeltec_onboard_bringup/ "$WORKSPACE/src/wheeltec_onboard_bringup/"
+    rsync -a /workspace/repo/onboard/ros1/chassis/src/turn_on_wheeltec_robot/ "$WORKSPACE/src/turn_on_wheeltec_robot/"
+    rsync -a /workspace/repo/onboard/ros1/communication/src/wheeltec_swarm_ros_bridge/ "$WORKSPACE/src/wheeltec_swarm_ros_bridge/"
+    rsync -a /workspace/repo/onboard/ros1/autostart/src/wheeltec_onboard_autostart/ "$WORKSPACE/src/wheeltec_onboard_autostart/"
+    rsync -a /workspace/repo/onboard/ros1/autostart/src/wheeltec_onboard/ "$WORKSPACE/src/wheeltec_onboard/"
+    rsync -a /workspace/repo/onboard/ros1/sensors/src/lidar/lslidar_msgs/ "$WORKSPACE/src/lslidar_msgs/"
+    rsync -a /workspace/repo/onboard/ros1/sensors/src/lidar/lslidar_driver/ "$WORKSPACE/src/lslidar_driver/"
+    rsync -a /workspace/repo/onboard/ros1/sensors/src/lidar/lslidar/ "$WORKSPACE/src/lslidar/"
 
     cd "$WORKSPACE"
     set +u
@@ -72,17 +76,17 @@ docker run "${docker_args[@]}" "$DOCKER_IMAGE" bash -lc '
     set -u
     test "$(rospack find turn_on_wheeltec_robot)" = "$WORKSPACE/src/turn_on_wheeltec_robot"
     test "$(rospack find wheeltec_swarm_ros_bridge)" = "$WORKSPACE/src/wheeltec_swarm_ros_bridge"
-    test "$(rospack find wheeltec_onboard_bringup)" = "$WORKSPACE/src/wheeltec_onboard_bringup"
+    test "$(rospack find wheeltec_onboard_autostart)" = "$WORKSPACE/src/wheeltec_onboard_autostart"
     roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch >/dev/null
     roslaunch --files wheeltec_swarm_ros_bridge wheeltec_swarm_ros_bridge.launch >/dev/null
-    roslaunch --files wheeltec_onboard_bringup wheeltec_onboard.launch >/dev/null
+    roslaunch --files wheeltec_onboard_autostart wheeltec.launch >/dev/null
 
     /workspace/repo/.xgc2/scripts/package_debs.sh --install-root "$WORKSPACE/install-root" --output-dir /workspace/out
 
     if [[ "$INSTALL_CHECK" == "true" ]]; then
       printf "#!/bin/sh\nexit 101\n" > /usr/sbin/policy-rc.d
       chmod 0755 /usr/sbin/policy-rc.d
-      apt-get install -y --no-install-recommends /workspace/out/ros-melodic-xgc2-wheeltec-driver_*.deb /workspace/out/ros-melodic-xgc2-wheeltec-swarm-ros-bridge_*.deb /workspace/out/ros-melodic-xgc2-wheeltec-onboard_*.deb
+      apt-get install -y --no-install-recommends /workspace/out/ros-melodic-xgc2-wheeltec-driver_*.deb /workspace/out/ros-melodic-xgc2-wheeltec-swarm-ros-bridge_*.deb /workspace/out/ros-melodic-xgc2-wheeltec-onboard-autostart_*.deb /workspace/out/ros-melodic-xgc2-wheeltec-onboard_*.deb
       /workspace/repo/.xgc2/scripts/check_installed_packages.sh
     fi
   '

@@ -1,0 +1,32 @@
+### Wheeltec onboard swarm_ros_bridge topic configuration.
+### Compiled types: sensor_msgs/Imu, geometry_msgs/Twist,
+### std_msgs/String, std_msgs/Float32.
+### /PowerVoltage stays std_msgs/Float32 (volts). Do not wrap it as String.
+### Needs a generic bridge_node that includes MSG_TYPE4 Float32.
+
+IP:
+  self: '*'
+  # Site peer. Override via a copied yaml; do not ship a field station address.
+  qgc: 127.0.0.1
+  test_local: 127.0.0.1
+
+send_topics:
+- topic_name: /imu
+  msg_type: sensor_msgs/Imu
+  max_freq: 20
+  srcIP: self
+  srcPort: 3001
+- topic_name: /PowerVoltage
+  msg_type: std_msgs/Float32
+  max_freq: 1
+  srcIP: self
+  srcPort: 3002
+
+recv_topics:
+- topic_name: /cmd_vel
+  msg_type: geometry_msgs/Twist
+  # Required by the current generic bridge parser.  Receive-side throttling is
+  # not implemented by that binary, so zero is used as a compatibility value.
+  max_freq: 0
+  srcIP: qgc
+  srcPort: 3005

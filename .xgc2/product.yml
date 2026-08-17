@@ -1,20 +1,26 @@
 schema: xgc2.product.v1
 id: xgc2-wheeltec-onboard-ros1
 name: XGC2 Wheeltec Onboard ROS1
-version: 0.1.0-3
+version: 0.1.0-4
 kind: ros1-apt
-summary: ROS Melodic Wheeltec serial chassis, swarm bridge integration, and manual
-  onboard bringup.
+summary: ROS Melodic Wheeltec serial chassis, swarm bridge wrapper, and
+  install-only autostart. LeiShen serial lidar is an optional published
+  package, not part of the install set.
 groups:
 - robotics
 - wheeltec
 - onboard
 ros:
   distro: melodic
+  workspace: onboard/ros1
   packages:
   - turn_on_wheeltec_robot
   - wheeltec_swarm_ros_bridge
-  - wheeltec_onboard_bringup
+  - wheeltec_onboard_autostart
+  - wheeltec_onboard
+  - lslidar_msgs
+  - lslidar_driver
+  - lslidar
 apt:
   distribution: bionic
   install:
@@ -22,7 +28,11 @@ apt:
   packages:
   - ros-melodic-xgc2-wheeltec-driver
   - ros-melodic-xgc2-wheeltec-swarm-ros-bridge
+  - ros-melodic-xgc2-wheeltec-onboard-autostart
   - ros-melodic-xgc2-wheeltec-onboard
+  - ros-melodic-xgc2-wheeltec-lslidar-msgs
+  - ros-melodic-xgc2-wheeltec-lslidar-driver
+  - ros-melodic-xgc2-wheeltec-lslidar
   depends:
   - ros-melodic-geometry-msgs
   - ros-melodic-nav-msgs
@@ -31,40 +41,32 @@ apt:
   - ros-melodic-sensor-msgs
   - ros-melodic-serial
   - ros-melodic-std-msgs
-  - ros-melodic-swarm-ros-bridge (>= 1.1.0-7)
+  - ros-melodic-swarm-ros-bridge (>= 1.1.0-11)
   - ros-melodic-tf
 usage:
-  install: 'sudo apt update
-
+  install: |
+    sudo apt update
     sudo apt install ros-melodic-xgc2-wheeltec-onboard
-
-    '
-  smoke_test: 'rospack find turn_on_wheeltec_robot
-
+  smoke_test: |
+    rospack find turn_on_wheeltec_robot
     roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch
-
-    rospack find wheeltec_onboard_bringup
-
-    roslaunch --files wheeltec_onboard_bringup wheeltec_onboard.launch
-
-    '
-  notes: 'The product installs only the current serial chassis driver, its Wheeltec
-
-    bridge wrapper, and a manual aggregate bringup. The generic bridge binary
-
-    remains the independently released ros-melodic-swarm-ros-bridge package.
-
-    No systemd service, external HandsFree IMU, or legacy navigation launch is
-
-    installed until those vehicle-specific components are validated on hardware.
-
-    '
+    rospack find wheeltec_onboard_autostart
+    roslaunch --files wheeltec_onboard_autostart wheeltec.launch
+  notes: |
+    Install set is chassis + swarm wrapper + autostart compose.
+    Units are installed and not enabled. After install, enable chassis
+    and swarm only. Lidar is optional ros-melodic-xgc2-wheeltec-lslidar
+    and is not a hard Depends. Bridge peer lives in a copied yaml
+    /etc/xgc2/wheeltec/ros_topics.yaml, not in the packaged default.
 ownership:
   paths:
   - /opt/ros/melodic/share/turn_on_wheeltec_robot
   - /opt/ros/melodic/lib/turn_on_wheeltec_robot/wheeltec_robot_node
   - /opt/ros/melodic/share/wheeltec_swarm_ros_bridge
-  - /opt/ros/melodic/share/wheeltec_onboard_bringup
+  - /opt/ros/melodic/share/wheeltec_onboard_autostart
+  - /opt/ros/melodic/share/wheeltec_onboard
+  - /opt/ros/melodic/share/lslidar_driver
+  - /opt/ros/melodic/share/lslidar_msgs
 release:
   repository: lxk36/xgc2-robot-wheeltec
   ref: main
@@ -73,4 +75,4 @@ release:
   dependency_policy:
     xgc2-swarm-ros-bridge: verify
   apt_versions:
-    bionic: 0.1.0-3
+    bionic: 0.1.0-4

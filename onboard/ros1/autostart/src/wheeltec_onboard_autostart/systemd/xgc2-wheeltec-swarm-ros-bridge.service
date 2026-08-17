@@ -1,0 +1,20 @@
+[Unit]
+Description=XGC2 Wheeltec swarm_ros_bridge
+After=network.target xgc2-wheeltec-chassis.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=wheeltec
+Group=wheeltec
+WorkingDirectory=/home/wheeltec
+EnvironmentFile=-/etc/xgc2/wheeltec/onboard.env
+ExecStart=/opt/ros/melodic/lib/wheeltec_onboard_autostart/start-swarm-ros-bridge
+Restart=always
+RestartSec=5
+TimeoutStartSec=60
+TimeoutStopSec=15
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

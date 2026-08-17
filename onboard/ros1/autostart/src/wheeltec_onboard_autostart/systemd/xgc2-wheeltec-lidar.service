@@ -1,0 +1,21 @@
+[Unit]
+Description=XGC2 Wheeltec serial lidar (optional)
+After=network.target systemd-udevd.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=wheeltec
+Group=wheeltec
+SupplementaryGroups=dialout
+WorkingDirectory=/home/wheeltec
+EnvironmentFile=-/etc/xgc2/wheeltec/onboard.env
+ExecStart=/opt/ros/melodic/lib/wheeltec_onboard_autostart/start-lidar
+Restart=always
+RestartSec=5
+TimeoutStartSec=90
+TimeoutStopSec=15
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

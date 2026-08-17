@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="config_file" default="$(find wheeltec_swarm_ros_bridge)/config/ros_topics.yaml" />
+
+  <include file="$(find wheeltec_swarm_ros_bridge)/launch/wheeltec_swarm_ros_bridge.launch">
+    <arg name="config_file" value="$(arg config_file)" />
+  </include>
+</launch>

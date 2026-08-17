@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Optional. Requires ros-melodic-xgc2-wheeltec-lslidar-driver. Not a hard Depends. -->
+  <include file="$(find lslidar_driver)/launch/lslidar_serial.launch" />
+</launch>
