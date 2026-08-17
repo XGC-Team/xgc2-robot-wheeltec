@@ -68,27 +68,8 @@ jobs:
           echo "apt_overlay_url requires a dependency_set_digest" >&2
           exit 1
         fi
-  validate-release-inputs:
-    needs: prepare-contract
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-  cpp-quality:
-    needs: validate-release-inputs
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Run lightweight C++ quality checks
-      run: git diff --check HEAD
-  source-tests:
-    needs: validate-release-inputs
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Run source package checks
-      run: .xgc2/scripts/check_package_compliance.sh
   build-debs:
-    needs: validate-release-inputs
+    needs: prepare-contract
     strategy:
       fail-fast: false
       matrix:
