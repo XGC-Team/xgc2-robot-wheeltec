@@ -58,9 +58,17 @@ target_link_libraries(lslidar_input
   ${catkin_LIBRARIES}
   ${libpcap_LIBRARIES}
 )
+add_dependencies(lslidar_input
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+)
 
 target_link_libraries(lslidar_serial
   ${catkin_LIBRARIES}
+)
+add_dependencies(lslidar_serial
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
 )
 
 target_link_libraries(lslidar_driver
