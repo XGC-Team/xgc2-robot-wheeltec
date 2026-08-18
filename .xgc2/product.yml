@@ -1,7 +1,7 @@
 schema: xgc2.product.v1
 id: xgc2-wheeltec-onboard-ros1
 name: XGC2 Wheeltec Onboard ROS1
-version: 0.1.0-4
+version: 0.1.0-5
 kind: ros1-apt
 summary: ROS Melodic Wheeltec serial chassis, swarm bridge wrapper, and
   install-only autostart. LeiShen serial lidar is an optional published
@@ -75,4 +75,4 @@ release:
   dependency_policy:
     xgc2-swarm-ros-bridge: verify
   apt_versions:
-    bionic: 0.1.0-4
+    bionic: 0.1.0-5
