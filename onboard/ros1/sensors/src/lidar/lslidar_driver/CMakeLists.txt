@@ -102,7 +102,7 @@ add_dependencies(lslidar_driver_node
 )
 
 # install options
-install(TARGETS lslidar_input lslidar_driver_node lslidar_serial
+install(TARGETS lslidar_input lslidar_driver lslidar_driver_node lslidar_serial
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
