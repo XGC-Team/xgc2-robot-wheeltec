@@ -312,7 +312,7 @@ EOF
 }
 
 build_driver_deb "$driver_deb"
-build_deb "$bridge_deb" "wheeltec_swarm_ros_bridge" "ros-$ROS_DISTRO-roslaunch, ros-$ROS_DISTRO-swarm-ros-bridge (>= 1.1.0-11)" "XGC2 Wheeltec swarm ROS bridge configuration"
+build_deb "$bridge_deb" "wheeltec_swarm_ros_bridge" "ros-$ROS_DISTRO-roslaunch, ros-$ROS_DISTRO-swarm-ros-bridge (>= 1.1.0-12)" "XGC2 Wheeltec swarm ROS bridge configuration"
 build_autostart_deb "$autostart_deb"
 build_deb "$onboard_deb" "wheeltec_onboard" "$driver_deb (>= $VERSION), $bridge_deb (>= $VERSION), $autostart_deb (>= $VERSION)" "XGC2 Wheeltec install-set metapackage"
 if [[ -f "$PREFIX_ROOT/share/lslidar_msgs/package.xml" ]]; then

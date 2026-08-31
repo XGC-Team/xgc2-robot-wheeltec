@@ -34,7 +34,8 @@ xgc2-wheeltec-chassis.service
 xgc2-wheeltec-swarm-ros-bridge.service
   wheeltec_onboard_autostart/swarm.launch
     send /imu :3001 20 Hz, /PowerVoltage :3002 1 Hz
-    recv /cmd_vel from qgc :3005
+    recv /cmd_vel from XGC1 Scout .150, XGC1 Mecanum .199, and XGC2 .251
+      (default :3001; field script may select legacy :3005 or :3301)
 xgc2-wheeltec-lidar.service
   optional; needs ros-melodic-xgc2-wheeltec-lslidar
 ```

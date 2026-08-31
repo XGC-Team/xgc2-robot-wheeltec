@@ -1,13 +1,22 @@
-### Wheeltec onboard swarm_ros_bridge topic configuration.
-### Compiled types: sensor_msgs/Imu, geometry_msgs/Twist,
-### std_msgs/String, std_msgs/Float32.
-### /PowerVoltage stays std_msgs/Float32 (volts). Do not wrap it as String.
-### Needs a generic bridge_node that includes MSG_TYPE4 Float32.
+### Official swarm_ros_bridge: ZMQ PUB/SUB over TCP.
+### send binds tcp://*:srcPort — any GCS can SUB IMU / voltage.
+### recv connects tcp://peer:srcPort — one recv_topics row per GCS that may
+### publish /cmd_vel. Last octets 150 / 199 / 251 are XGC1 Scout Lab,
+### XGC1 Mecanum Lab, and the XGC2 station. Do not ship a field LAN prefix;
+### configure-network.sh writes the real /24. Placeholders stay on loopback.
+### XGC1 and XGC2 both use /imu + /PowerVoltage + cmd_vel.
+### Official compiled types have no Odometry / chassis_state; do not invent one.
+### Two stations sending /cmd_vel at once is last-writer-wins; one GCS at a time.
+### recv max_freq is required by bridge_node; 0 means no extra throttle.
+### cmd_vel srcPort default 3001 matches XGC2 mecanum 1. Old XGC1 used 3005.
 
 IP:
   self: '*'
-  # Site peer. Override via a copied yaml; do not ship a field station address.
+  gcs150: 127.0.0.1
+  gcs199: 127.0.0.1
+  gcs251: 127.0.0.1
   qgc: 127.0.0.1
+  gcs: 127.0.0.1
   test_local: 127.0.0.1
 
 send_topics:
@@ -25,8 +34,16 @@ send_topics:
 recv_topics:
 - topic_name: /cmd_vel
   msg_type: geometry_msgs/Twist
-  # Required by the current generic bridge parser.  Receive-side throttling is
-  # not implemented by that binary, so zero is used as a compatibility value.
   max_freq: 0
-  srcIP: qgc
-  srcPort: 3005
+  srcIP: gcs150
+  srcPort: 3001
+- topic_name: /cmd_vel
+  msg_type: geometry_msgs/Twist
+  max_freq: 0
+  srcIP: gcs199
+  srcPort: 3001
+- topic_name: /cmd_vel
+  msg_type: geometry_msgs/Twist
+  max_freq: 0
+  srcIP: gcs251
+  srcPort: 3001

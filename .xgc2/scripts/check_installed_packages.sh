@@ -55,9 +55,15 @@ assert sends["/imu"]["max_freq"] == 20
 assert sends["/imu"]["msg_type"] == "sensor_msgs/Imu"
 assert sends["/PowerVoltage"]["max_freq"] == 1
 assert sends["/PowerVoltage"]["msg_type"] == "std_msgs/Float32"
-assert config["recv_topics"][0]["topic_name"] == "/cmd_vel"
-assert config["recv_topics"][0]["max_freq"] == 0
-assert "qgc" in config["IP"]
+assert "/scout/chassis_state" not in sends
+assert set(("gcs150", "gcs199", "gcs251")) <= set(config["IP"])
+assert all(config["IP"][name] == "127.0.0.1" for name in ("gcs150", "gcs199", "gcs251"))
+receivers = config["recv_topics"]
+assert len(receivers) == 3
+assert [item["srcIP"] for item in receivers] == ["gcs150", "gcs199", "gcs251"]
+assert all(item["topic_name"] == "/cmd_vel" for item in receivers)
+assert all(item["msg_type"] == "geometry_msgs/Twist" for item in receivers)
+assert all(item["max_freq"] == 0 and item["srcPort"] == 3001 for item in receivers)
 PY
 
 roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch >/dev/null

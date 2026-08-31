@@ -1,7 +1,7 @@
 schema: xgc2.product.v1
 id: xgc2-wheeltec-onboard-ros1
 name: XGC2 Wheeltec Onboard ROS1
-version: 0.1.0-6
+version: 0.1.0-7
 kind: ros1-apt
 summary: ROS Melodic Wheeltec serial chassis, swarm bridge wrapper, and
   install-only autostart. LeiShen serial lidar is an optional published
@@ -41,7 +41,7 @@ apt:
   - ros-melodic-sensor-msgs
   - ros-melodic-serial
   - ros-melodic-std-msgs
-  - ros-melodic-swarm-ros-bridge (>= 1.1.0-11)
+  - ros-melodic-swarm-ros-bridge (>= 1.1.0-12)
   - ros-melodic-tf
 usage:
   install: |
@@ -56,8 +56,9 @@ usage:
     Install set is chassis + swarm wrapper + autostart compose.
     Units are installed and not enabled. After install, enable chassis
     and swarm only. Lidar is optional ros-melodic-xgc2-wheeltec-lslidar
-    and is not a hard Depends. Bridge peer lives in a copied yaml
-    /etc/xgc2/wheeltec/ros_topics.yaml, not in the packaged default.
+    and is not a hard Depends. The packaged bridge template contains only
+    loopback placeholders; configure-network.sh writes field peers to
+    /etc/xgc2/wheeltec/ros_topics.yaml.
 ownership:
   paths:
   - /opt/ros/melodic/share/turn_on_wheeltec_robot
@@ -75,4 +76,4 @@ release:
   dependency_policy:
     xgc2-swarm-ros-bridge: verify
   apt_versions:
-    bionic: 0.1.0-6
+    bionic: 0.1.0-7
