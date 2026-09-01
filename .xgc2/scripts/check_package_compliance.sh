@@ -31,7 +31,7 @@ xmllint --noout \
   onboard/ros1/autostart/src/wheeltec_onboard/package.xml
 
 grep -q '^id: xgc2-wheeltec-onboard-ros1$' .xgc2/product.yml
-grep -q '^version: 0.1.0-7$' .xgc2/product.yml
+grep -q '^version: 0.1.0-8$' .xgc2/product.yml
 grep -q 'ros-melodic-xgc2-wheeltec-onboard-autostart' .xgc2/product.yml
 grep -q 'ros-melodic-swarm-ros-bridge (>= 1.1.0-12)' .xgc2/product.yml
 grep -q '<name>turn_on_wheeltec_robot</name>' onboard/ros1/chassis/src/turn_on_wheeltec_robot/package.xml
