@@ -33,8 +33,10 @@ add_executable(wheeltec_robot_node
   src/wheeltec_robot.cpp
   src/Quaternion_Solution.cpp
 )
+find_package(Threads REQUIRED)
 target_link_libraries(wheeltec_robot_node
   ${catkin_LIBRARIES}
+  Threads::Threads
 )
 
 install(TARGETS wheeltec_robot_node

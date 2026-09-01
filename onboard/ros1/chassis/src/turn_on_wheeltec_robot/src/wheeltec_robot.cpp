@@ -44,8 +44,24 @@ Date: January 28, 2021
 Function: The speed topic subscription Callback function, according to the subscribed instructions through the serial port command control of the lower computer
 功能: 速度话题订阅回调函数Callback，根据订阅的指令通过串口发指令控制下位机
 ***************************************/
+void turn_on_robot::HoldZeroThunk(void *self)
+{
+  static_cast<turn_on_robot *>(self)->HoldZero();
+}
+
+void turn_on_robot::HoldZero()
+{
+  geometry_msgs::Twist zero;
+  Cmd_Vel_Callback(zero);
+}
+
 void turn_on_robot::Cmd_Vel_Callback(const geometry_msgs::Twist &twist_aux)
 {
+  if (hold_gate_.held() && (twist_aux.linear.x != 0.0 || twist_aux.linear.y != 0.0 ||
+                            twist_aux.angular.z != 0.0)) {
+    HoldZero();
+    return;
+  }
   short  transition;  //intermediate variable //中间变量
 
   Send_Data.tx[0]=FRAME_HEADER; //frame head 0x7B //帧头0X7B
@@ -451,7 +467,7 @@ Date: January 28, 2021
 Function: Constructor, executed only once, for initialization
 功能: 构造函数, 只执行一次，用于初始化
 ***************************************/
-turn_on_robot::turn_on_robot():Sampling_Time(0),Power_voltage(0)
+turn_on_robot::turn_on_robot():Sampling_Time(0),Power_voltage(0),hold_gate_(std::string())
 {
   //Clear the data
   //清空数据
@@ -476,7 +492,9 @@ turn_on_robot::turn_on_robot():Sampling_Time(0),Power_voltage(0)
 
   //Set the velocity control command callback function
   //速度控制命令订阅回调函数设置
-  Cmd_Vel_Sub     = n.subscribe("cmd_vel",     100, &turn_on_robot::Cmd_Vel_Callback, this); 
+  Cmd_Vel_Sub     = n.subscribe("cmd_vel",     100, &turn_on_robot::Cmd_Vel_Callback, this);
+  hold_gate_.setZeroThunk(&turn_on_robot::HoldZeroThunk, this);
+  xgc_chassis_hold::Hub::instance().add(&hold_gate_);
 
   ROS_INFO_STREAM("Data ready"); //Prompt message //提示信息
   
@@ -505,6 +523,7 @@ Function: Destructor, executed only once and called by the system when an object
 ***************************************/
 turn_on_robot::~turn_on_robot()
 {
+  xgc_chassis_hold::Hub::instance().remove(&hold_gate_);
   //Sends the stop motion command to the lower machine before the turn_on_robot object ends
   //对象turn_on_robot结束前向下位机发送停止运动命令
   Send_Data.tx[0]=FRAME_HEADER;

@@ -20,9 +20,11 @@
 #include <std_msgs/Float32.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Vector3.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/Imu.h>
+#include "xgc_chassis_hold/udp.hpp"
 using namespace std;
 
 //Macro definition
@@ -142,7 +144,10 @@ class turn_on_robot
 		ros::Subscriber Cmd_Vel_Sub; //Initialize the topic subscriber //初始化话题订阅者
 		//The speed topic subscribes to the callback function
 		//速度话题订阅回调函数
-		void Cmd_Vel_Callback(const geometry_msgs::Twist &twist_aux);              
+		void Cmd_Vel_Callback(const geometry_msgs::Twist &twist_aux);
+		void HoldZero();
+		static void HoldZeroThunk(void *self);
+		xgc_chassis_hold::Gate hold_gate_;
 
 		ros::Publisher odom_publisher, imu_publisher, voltage_publisher; //Initialize the topic publisher //初始化话题发布者
 		void Publish_Odom();      //Pub the speedometer topic //发布里程计话题
