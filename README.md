@@ -4,7 +4,7 @@ Vehicle-true ROS Melodic runtime for the Wheeltec mecanum onboard computer.
 
 Layout matches AgileX Scout: sibling workspaces under `onboard/ros1/`.
 Source of truth for field numbers is the usage-repo live page
-`docs/field/wheeltec/`, not this product tree.
+`memory/field/wheeltec/`, not this product tree.
 
 ## Vehicle
 
@@ -65,8 +65,8 @@ sudo systemctl enable --now xgc2-wheeltec-swarm-ros-bridge.service
 
 Driver postinst copies packaged udev rules when those filenames are absent.
 
-`docs/` keeps product notes. Field notes live in the main repo
-`docs/field/wheeltec/`. Vendor navigation/camera/URDF leftovers are in
+`docs/` is present-tense operator notes. Field notes live in `memory/field/wheeltec/`
+(`xgc2-dev-memory`). Vendor navigation/camera/URDF leftovers are in
 `vendor/legacy/` and are not packaged.
 
 ## Upstream provenance
