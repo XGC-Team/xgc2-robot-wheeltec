@@ -47,8 +47,14 @@ grep -q 'EnvironmentFile=-/etc/xgc2/wheeltec/onboard.env' /lib/systemd/system/xg
 grep -q 'EnvironmentFile=-/etc/xgc2/wheeltec/onboard.env' /lib/systemd/system/xgc2-wheeltec-swarm-ros-bridge.service
 grep -q 'missing .* configure network' "$PREFIX/lib/wheeltec_onboard_autostart/start-swarm-ros-bridge"
 
+bridge_stub="$(mktemp)"
+cat >"${bridge_stub}" <<'YAML'
+send_topics: []
+recv_topics: []
+YAML
 roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch >/dev/null
-roslaunch --files wheeltec_onboard_autostart swarm.launch >/dev/null
-roslaunch --files wheeltec_onboard_autostart wheeltec.launch >/dev/null
+roslaunch --files wheeltec_onboard_autostart swarm.launch "config_file:=${bridge_stub}" >/dev/null
+roslaunch --files wheeltec_onboard_autostart wheeltec.launch "bridge_config_file:=${bridge_stub}" >/dev/null
+rm -f -- "${bridge_stub}"
 
 echo "Installed Wheeltec ROS1 package checks passed"

@@ -50,7 +50,7 @@ usage:
     rospack find turn_on_wheeltec_robot
     roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch
     rospack find wheeltec_onboard_autostart
-    roslaunch --files wheeltec_onboard_autostart wheeltec.launch
+    roslaunch --files wheeltec_onboard_autostart chassis.launch
   notes: |
     Install set is chassis + autostart compose. Official swarm_ros_bridge
     is an APT Depends. Units are installed and not enabled. After install,
