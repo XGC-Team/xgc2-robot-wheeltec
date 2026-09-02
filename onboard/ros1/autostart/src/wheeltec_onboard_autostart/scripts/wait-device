@@ -7,8 +7,23 @@ import sys
 import time
 
 
+def device_openable(path):
+    """Path exists is not enough: CDC ACM can be present but still EBUSY/ENODEV."""
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+    except OSError:
+        return False
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+    return True
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Wait for a device path.")
+    parser = argparse.ArgumentParser(
+        description="Wait until a serial device exists and can be opened."
+    )
     parser.add_argument("path")
     parser.add_argument("--timeout", type=float, default=60.0)
     parser.add_argument("--period", type=float, default=0.2)
@@ -16,11 +31,11 @@ def main():
 
     deadline = time.time() + args.timeout
     while time.time() < deadline:
-        if os.path.exists(args.path):
+        if device_openable(args.path):
             return 0
         time.sleep(args.period)
 
-    print("Device did not appear: %s" % args.path, file=sys.stderr)
+    print("Device did not become openable: %s" % args.path, file=sys.stderr)
     return 1
 
 

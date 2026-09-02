@@ -134,7 +134,7 @@ class turn_on_robot
 	public:
 		turn_on_robot();  //Constructor //构造函数
 		~turn_on_robot(); //Destructor //析构函数
-		void Control();   //Loop control code //循环控制代码
+		int Control();   //Loop control code; 0 ok, 1 serial/watchdog failure
 		serial::Serial Stm32_Serial; //Declare a serial object //声明串口对象 
 	private:
 		ros::NodeHandle n;           //Create a ROS node handle //创建ROS节点句柄

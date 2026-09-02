@@ -1,6 +1,7 @@
 [Unit]
 Description=XGC2 Wheeltec chassis (serial driver)
-After=network.target local-fs.target systemd-udevd.service
+After=network.target local-fs.target systemd-udevd.service dev-wheeltec_controller.device
+Wants=dev-wheeltec_controller.device
 StartLimitIntervalSec=0
 
 [Service]

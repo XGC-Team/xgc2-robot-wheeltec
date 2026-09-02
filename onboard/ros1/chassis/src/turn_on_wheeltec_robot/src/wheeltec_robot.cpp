@@ -1,5 +1,6 @@
 #include "wheeltec_robot.h"
 #include "Quaternion_Solution.h"
+#include <stdexcept>
 
 sensor_msgs::Imu Mpu6050;//Instantiate an IMU object //实例化IMU对象 
 
@@ -11,9 +12,16 @@ Function: The main function, ROS initialization, creates the Robot_control objec
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "wheeltec_robot"); //ROS initializes and sets the node name //ROS初始化 并设置节点名称 
-  turn_on_robot Robot_Control; //Instantiate an object //实例化一个对象
-  Robot_Control.Control(); //Loop through data collection and publish the topic //循环执行数据采集和发布话题等操作
-  return 0;  
+  try
+  {
+    turn_on_robot Robot_Control; //Instantiate an object //实例化一个对象
+    return Robot_Control.Control();
+  }
+  catch (const std::exception &e)
+  {
+    ROS_FATAL_STREAM(e.what());
+    return 1;
+  }
 } 
 
 /**************************************
@@ -342,7 +350,11 @@ bool turn_on_robot::Get_Sensor_Data_New()
   short transition_16=0; //Intermediate variable //中间变量
   uint8_t i=0,check=0, error=1,Receive_Data_Pr[1]; //Temporary variable to save the data of the lower machine //临时变量，保存下位机数据
   static int count; //Static variable for counting //静态变量，用于计数
-  Stm32_Serial.read(Receive_Data_Pr,sizeof(Receive_Data_Pr)); //Read the data sent by the lower computer through the serial port //通过串口读取下位机发送过来的数据
+  size_t n_read = Stm32_Serial.read(Receive_Data_Pr,sizeof(Receive_Data_Pr));
+  if (n_read < 1)
+  {
+    return false;
+  }
 
   /*//View the received raw data directly and debug it for use//直接查看接收到的原始数据，调试使用
   ROS_INFO("%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x-%x",
@@ -429,9 +441,11 @@ Date: January 28, 2021
 Function: Loop access to the lower computer data and issue topics
 功能: 循环获取下位机数据与发布话题
 ***************************************/
-void turn_on_robot::Control()
+int turn_on_robot::Control()
 {
   _Last_Time = ros::Time::now();
+  ros::Time last_frame = _Last_Time;
+  const double frame_timeout_s = 15.0;
   while(ros::ok())
   {
     Sampling_Time = (_Now - _Last_Time).toSec(); //Retrieves time interval, which is used to integrate velocity to obtain displacement (mileage) 
@@ -440,7 +454,7 @@ void turn_on_robot::Control()
     if (true == Get_Sensor_Data_New()) //The serial port reads and verifies the data sent by the lower computer, and then the data is converted to international units
                                    //通过串口读取并校验下位机发送过来的数据，然后数据转换为国际单位
     {
-      
+      last_frame = _Now;
 
       Robot_Pos.X+=(Robot_Vel.X * cos(Robot_Pos.Z) - Robot_Vel.Y * sin(Robot_Pos.Z)) * Sampling_Time; //Calculate the displacement in the X direction, unit: m //计算X方向的位移，单位：m
       Robot_Pos.Y+=(Robot_Vel.X * sin(Robot_Pos.Z) + Robot_Vel.Y * cos(Robot_Pos.Z)) * Sampling_Time; //Calculate the displacement in the Y direction, unit: m //计算Y方向的位移，单位：m
@@ -458,9 +472,15 @@ void turn_on_robot::Control()
       _Last_Time = _Now; //Record the time and use it to calculate the time interval //记录时间，用于计算时间间隔
       
     }
+    else if ((_Now - last_frame).toSec() > frame_timeout_s)
+    {
+      ROS_ERROR_STREAM("wheeltec_robot: no serial frames for 15s; exiting so systemd can restart");
+      return 1;
+    }
     
     ros::spinOnce();   //The loop waits for the callback function //循环等待回调函数
     }
+  return 0;
 }
 /**************************************
 Date: January 28, 2021
@@ -506,15 +526,22 @@ turn_on_robot::turn_on_robot():Sampling_Time(0),Power_voltage(0),hold_gate_(std:
     serial::Timeout _time = serial::Timeout::simpleTimeout(2000); //Timeout //超时等待
     Stm32_Serial.setTimeout(_time);
     Stm32_Serial.open(); //Open the serial port //开启串口
+    // CDC ACM ignores a timeout applied only before open; set it again.
+    Stm32_Serial.setTimeout(_time);
+    Stm32_Serial.setDTR(true);
+    Stm32_Serial.setRTS(true);
   }
   catch (serial::IOException& e)
   {
-    ROS_ERROR_STREAM("wheeltec_robot can not open serial port,Please check the serial port cable! "); //If opening the serial port fails, an error message is printed //如果开启串口失败，打印错误信息
+    ROS_ERROR_STREAM("wheeltec_robot can not open serial port,Please check the serial port cable! ");
+    throw std::runtime_error("wheeltec_robot serial open failed: " + usart_port_name);
   }
-  if(Stm32_Serial.isOpen())
+  if(!Stm32_Serial.isOpen())
   {
-    ROS_INFO_STREAM("wheeltec_robot serial port opened"); //Serial port opened successfully //串口开启成功提示
+    ROS_ERROR_STREAM("wheeltec_robot serial port is not open");
+    throw std::runtime_error("wheeltec_robot serial port is not open: " + usart_port_name);
   }
+  ROS_INFO_STREAM("wheeltec_robot serial port opened");
 }
 /**************************************
 Date: January 28, 2021
