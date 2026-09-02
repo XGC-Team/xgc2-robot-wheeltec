@@ -1,3 +1,3 @@
 # Known legacy Wheeltec controller USB UART identity.  Confirm the attributes
 # on the target vehicle before installing this rule.
-ACTION=="add|change", SUBSYSTEM=="tty", KERNEL=="ttyUSB*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{serial}=="0002", GROUP:="dialout", MODE:="0660", SYMLINK+="wheeltec_controller"
+ACTION=="add|change", SUBSYSTEM=="tty", KERNEL=="ttyUSB*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ATTRS{serial}=="0002", GROUP:="dialout", MODE:="0660", TAG+="systemd", SYMLINK+="wheeltec_controller"
