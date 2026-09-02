@@ -21,8 +21,6 @@ shellcheck \
 xmllint --noout \
   onboard/ros1/chassis/src/turn_on_wheeltec_robot/package.xml \
   onboard/ros1/chassis/src/turn_on_wheeltec_robot/launch/wheeltec_robot.launch \
-  onboard/ros1/communication/src/wheeltec_swarm_ros_bridge/package.xml \
-  onboard/ros1/communication/src/wheeltec_swarm_ros_bridge/launch/wheeltec_swarm_ros_bridge.launch \
   onboard/ros1/autostart/src/wheeltec_onboard_autostart/package.xml \
   onboard/ros1/autostart/src/wheeltec_onboard_autostart/launch/wheeltec.launch \
   onboard/ros1/autostart/src/wheeltec_onboard_autostart/launch/chassis.launch \
@@ -30,17 +28,23 @@ xmllint --noout \
   onboard/ros1/autostart/src/wheeltec_onboard_autostart/launch/lidar.launch \
   onboard/ros1/autostart/src/wheeltec_onboard/package.xml
 
+test ! -d onboard/ros1/communication/src/wheeltec_swarm_ros_bridge
+
 grep -q '^id: xgc2-wheeltec-onboard-ros1$' .xgc2/product.yml
-grep -q '^version: 0.1.0-8$' .xgc2/product.yml
+grep -q '^version: 0.1.0-9$' .xgc2/product.yml
 grep -q 'ros-melodic-xgc2-wheeltec-onboard-autostart' .xgc2/product.yml
 grep -q 'ros-melodic-swarm-ros-bridge (>= 1.1.0-12)' .xgc2/product.yml
+if grep -q 'ros-melodic-xgc2-wheeltec-swarm-ros-bridge' .xgc2/product.yml; then
+  echo "retired ros-melodic-xgc2-wheeltec-swarm-ros-bridge must not remain in product.yml" >&2
+  exit 1
+fi
 grep -q '<name>turn_on_wheeltec_robot</name>' onboard/ros1/chassis/src/turn_on_wheeltec_robot/package.xml
-grep -q '<name>wheeltec_swarm_ros_bridge</name>' onboard/ros1/communication/src/wheeltec_swarm_ros_bridge/package.xml
 grep -q '<name>wheeltec_onboard_autostart</name>' onboard/ros1/autostart/src/wheeltec_onboard_autostart/package.xml
 grep -q '<name>wheeltec_onboard</name>' onboard/ros1/autostart/src/wheeltec_onboard/package.xml
-grep -q 'max_freq: 0' onboard/ros1/communication/src/wheeltec_swarm_ros_bridge/config/ros_topics.yaml
 grep -q 'ATTRS{serial}=="0002"' onboard/ros1/chassis/src/turn_on_wheeltec_robot/udev/99-xgc2-wheeltec-controller.rules
 grep -q 'ATTRS{serial}=="0001"' onboard/ros1/sensors/src/lidar/lslidar_driver/udev/99-xgc2-wheeltec-lidar.rules
+grep -q '/etc/xgc2/wheeltec/ros_topics.yaml' onboard/ros1/autostart/src/wheeltec_onboard_autostart/launch/swarm.launch
+grep -q 'missing .* configure network' onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-swarm-ros-bridge
 
 python3 .xgc2/scripts/xgc2_artifact_manifest.py --help >/dev/null
 

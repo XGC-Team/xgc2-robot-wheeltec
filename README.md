@@ -18,7 +18,7 @@ Source of truth for field numbers is the usage-repo live page
 
 ```text
 onboard/ros1/chassis          turn_on_wheeltec_robot
-onboard/ros1/communication    wheeltec_swarm_ros_bridge
+onboard/ros1/communication    (no vehicle wrapper; official swarm_ros_bridge)
 onboard/ros1/sensors          lidar only (lslidar_*)
 onboard/ros1/autostart        compose + install-only units
 ```
@@ -45,7 +45,7 @@ xgc2-wheeltec-lidar.service
 | Debian package | ROS package | Role |
 | --- | --- | --- |
 | `ros-melodic-xgc2-wheeltec-driver` | `turn_on_wheeltec_robot` | Serial chassis node |
-| `ros-melodic-xgc2-wheeltec-swarm-ros-bridge` | `wheeltec_swarm_ros_bridge` | YAML+launch; binary from APT `swarm_ros_bridge` |
+| `ros-melodic-swarm-ros-bridge` | `swarm_ros_bridge` | Official bridge binary (APT Depends) |
 | `ros-melodic-xgc2-wheeltec-onboard-autostart` | `wheeltec_onboard_autostart` | Compose launches and units; install-only |
 | `ros-melodic-xgc2-wheeltec-onboard` | `wheeltec_onboard` | Install-set meta; no lidar Depends |
 | `ros-melodic-xgc2-wheeltec-lslidar-msgs` | `lslidar_msgs` | Optional |

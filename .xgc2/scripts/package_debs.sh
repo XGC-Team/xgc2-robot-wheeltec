@@ -161,7 +161,6 @@ build_deb() {
 }
 
 driver_deb="ros-$ROS_DISTRO-xgc2-wheeltec-driver"
-bridge_deb="ros-$ROS_DISTRO-xgc2-wheeltec-swarm-ros-bridge"
 autostart_deb="ros-$ROS_DISTRO-xgc2-wheeltec-onboard-autostart"
 onboard_deb="ros-$ROS_DISTRO-xgc2-wheeltec-onboard"
 lidar_msgs_deb="ros-$ROS_DISTRO-xgc2-wheeltec-lslidar-msgs"
@@ -248,7 +247,7 @@ build_autostart_deb() {
     "$package_root/lib/systemd/system/"
 
   write_control "$package_root" "$deb_package" \
-    "udev, ros-$ROS_DISTRO-roslaunch, $driver_deb (>= $VERSION), $bridge_deb (>= $VERSION)" \
+    "udev, ros-$ROS_DISTRO-roslaunch, ros-$ROS_DISTRO-swarm-ros-bridge (>= 1.1.0-12), $driver_deb (>= $VERSION)" \
     "XGC2 Wheeltec autostart compose and install-only units"
   write_readme "$package_root" "$deb_package" "$ros_package"
 
@@ -312,9 +311,8 @@ EOF
 }
 
 build_driver_deb "$driver_deb"
-build_deb "$bridge_deb" "wheeltec_swarm_ros_bridge" "ros-$ROS_DISTRO-roslaunch, ros-$ROS_DISTRO-swarm-ros-bridge (>= 1.1.0-12)" "XGC2 Wheeltec swarm ROS bridge configuration"
 build_autostart_deb "$autostart_deb"
-build_deb "$onboard_deb" "wheeltec_onboard" "$driver_deb (>= $VERSION), $bridge_deb (>= $VERSION), $autostart_deb (>= $VERSION)" "XGC2 Wheeltec install-set metapackage"
+build_deb "$onboard_deb" "wheeltec_onboard" "$driver_deb (>= $VERSION), $autostart_deb (>= $VERSION)" "XGC2 Wheeltec install-set metapackage"
 if [[ -f "$PREFIX_ROOT/share/lslidar_msgs/package.xml" ]]; then
   build_deb "$lidar_msgs_deb" "lslidar_msgs" "ros-$ROS_DISTRO-std-msgs, ros-$ROS_DISTRO-message-runtime" "XGC2 Wheeltec LeiShen lidar messages"
   build_deb "$lidar_driver_deb" "lslidar_driver" "ros-$ROS_DISTRO-roscpp, ros-$ROS_DISTRO-sensor-msgs, ros-$ROS_DISTRO-pcl-ros, ros-$ROS_DISTRO-pcl-conversions, $lidar_msgs_deb (>= $VERSION)" "XGC2 Wheeltec LeiShen serial lidar driver"

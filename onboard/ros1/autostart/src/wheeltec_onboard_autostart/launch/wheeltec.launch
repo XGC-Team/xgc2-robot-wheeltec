@@ -7,7 +7,7 @@
   <arg name="gyro_frame_id" default="gyro_link" />
   <arg name="start_swarm_ros_bridge" default="true" />
   <arg name="start_lidar" default="false" />
-  <arg name="bridge_config_file" default="$(find wheeltec_swarm_ros_bridge)/config/ros_topics.yaml" />
+  <arg name="bridge_config_file" default="/etc/xgc2/wheeltec/ros_topics.yaml" />
 
   <include file="$(find wheeltec_onboard_autostart)/launch/chassis.launch">
     <arg name="usart_port_name" value="$(arg usart_port_name)" />

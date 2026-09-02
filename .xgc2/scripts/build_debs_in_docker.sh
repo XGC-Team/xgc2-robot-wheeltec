@@ -58,7 +58,6 @@ docker run "${docker_args[@]}" "$DOCKER_IMAGE" bash -lc '
     mkdir -p "$WORKSPACE/src"
 
     rsync -a /workspace/repo/onboard/ros1/chassis/src/turn_on_wheeltec_robot/ "$WORKSPACE/src/turn_on_wheeltec_robot/"
-    rsync -a /workspace/repo/onboard/ros1/communication/src/wheeltec_swarm_ros_bridge/ "$WORKSPACE/src/wheeltec_swarm_ros_bridge/"
     rsync -a /workspace/repo/onboard/ros1/autostart/src/wheeltec_onboard_autostart/ "$WORKSPACE/src/wheeltec_onboard_autostart/"
     rsync -a /workspace/repo/onboard/ros1/autostart/src/wheeltec_onboard/ "$WORKSPACE/src/wheeltec_onboard/"
     rsync -a /workspace/repo/onboard/ros1/sensors/src/lidar/lslidar_msgs/ "$WORKSPACE/src/lslidar_msgs/"
@@ -75,10 +74,9 @@ docker run "${docker_args[@]}" "$DOCKER_IMAGE" bash -lc '
     source devel/setup.bash
     set -u
     test "$(rospack find turn_on_wheeltec_robot)" = "$WORKSPACE/src/turn_on_wheeltec_robot"
-    test "$(rospack find wheeltec_swarm_ros_bridge)" = "$WORKSPACE/src/wheeltec_swarm_ros_bridge"
     test "$(rospack find wheeltec_onboard_autostart)" = "$WORKSPACE/src/wheeltec_onboard_autostart"
     roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch >/dev/null
-    roslaunch --files wheeltec_swarm_ros_bridge wheeltec_swarm_ros_bridge.launch >/dev/null
+    roslaunch --files wheeltec_onboard_autostart swarm.launch >/dev/null
     roslaunch --files wheeltec_onboard_autostart wheeltec.launch >/dev/null
 
     /workspace/repo/.xgc2/scripts/package_debs.sh --install-root "$WORKSPACE/install-root" --output-dir /workspace/out
@@ -86,7 +84,7 @@ docker run "${docker_args[@]}" "$DOCKER_IMAGE" bash -lc '
     if [[ "$INSTALL_CHECK" == "true" ]]; then
       printf "#!/bin/sh\nexit 101\n" > /usr/sbin/policy-rc.d
       chmod 0755 /usr/sbin/policy-rc.d
-      apt-get install -y --no-install-recommends /workspace/out/ros-melodic-xgc2-wheeltec-driver_*.deb /workspace/out/ros-melodic-xgc2-wheeltec-swarm-ros-bridge_*.deb /workspace/out/ros-melodic-xgc2-wheeltec-onboard-autostart_*.deb /workspace/out/ros-melodic-xgc2-wheeltec-onboard_*.deb
+      apt-get install -y --no-install-recommends /workspace/out/ros-melodic-xgc2-wheeltec-driver_*.deb /workspace/out/ros-melodic-xgc2-wheeltec-onboard-autostart_*.deb /workspace/out/ros-melodic-xgc2-wheeltec-onboard_*.deb
       /workspace/repo/.xgc2/scripts/check_installed_packages.sh
     fi
   '

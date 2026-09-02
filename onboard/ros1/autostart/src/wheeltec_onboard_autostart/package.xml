@@ -11,5 +11,5 @@
 
   <exec_depend>roslaunch</exec_depend>
   <exec_depend>turn_on_wheeltec_robot</exec_depend>
-  <exec_depend>wheeltec_swarm_ros_bridge</exec_depend>
+  <exec_depend>swarm_ros_bridge</exec_depend>
 </package>

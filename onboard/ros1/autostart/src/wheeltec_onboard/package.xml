@@ -2,7 +2,7 @@
 <package format="2">
   <name>wheeltec_onboard</name>
   <version>0.1.0</version>
-  <description>Install-set metapackage: chassis driver, swarm bridge wrapper, and autostart compose. Does not depend on lidar.</description>
+  <description>Install-set metapackage: chassis driver and autostart compose. Official swarm_ros_bridge comes from APT. Field yaml is written by configure-network. Does not depend on lidar.</description>
 
   <maintainer email="apt@example.com">XGC2</maintainer>
   <license>BSD-2-Clause</license>
@@ -10,7 +10,6 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <exec_depend>turn_on_wheeltec_robot</exec_depend>
-  <exec_depend>wheeltec_swarm_ros_bridge</exec_depend>
   <exec_depend>wheeltec_onboard_autostart</exec_depend>
 
   <export>

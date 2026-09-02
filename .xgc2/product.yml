@@ -1,10 +1,11 @@
 schema: xgc2.product.v1
 id: xgc2-wheeltec-onboard-ros1
 name: XGC2 Wheeltec Onboard ROS1
-version: 0.1.0-8
+version: 0.1.0-9
 kind: ros1-apt
-summary: ROS Melodic Wheeltec serial chassis, swarm bridge wrapper, and
-  install-only autostart. LeiShen serial lidar is an optional published
+summary: ROS Melodic Wheeltec serial chassis and install-only autostart.
+  Official swarm_ros_bridge comes from APT; field yaml is written by
+  configure-network. LeiShen serial lidar is an optional published
   package, not part of the install set.
 groups:
 - robotics
@@ -15,7 +16,6 @@ ros:
   workspace: onboard/ros1
   packages:
   - turn_on_wheeltec_robot
-  - wheeltec_swarm_ros_bridge
   - wheeltec_onboard_autostart
   - wheeltec_onboard
   - lslidar_msgs
@@ -27,7 +27,6 @@ apt:
   - ros-melodic-xgc2-wheeltec-onboard
   packages:
   - ros-melodic-xgc2-wheeltec-driver
-  - ros-melodic-xgc2-wheeltec-swarm-ros-bridge
   - ros-melodic-xgc2-wheeltec-onboard-autostart
   - ros-melodic-xgc2-wheeltec-onboard
   - ros-melodic-xgc2-wheeltec-lslidar-msgs
@@ -53,17 +52,16 @@ usage:
     rospack find wheeltec_onboard_autostart
     roslaunch --files wheeltec_onboard_autostart wheeltec.launch
   notes: |
-    Install set is chassis + swarm wrapper + autostart compose.
-    Units are installed and not enabled. After install, enable chassis
-    and swarm only. Lidar is optional ros-melodic-xgc2-wheeltec-lslidar
-    and is not a hard Depends. The packaged bridge template contains only
-    loopback placeholders; configure-network.sh writes field peers to
-    /etc/xgc2/wheeltec/ros_topics.yaml.
+    Install set is chassis + autostart compose. Official swarm_ros_bridge
+    is an APT Depends. Units are installed and not enabled. After install,
+    enable chassis and swarm only. Lidar is optional
+    ros-melodic-xgc2-wheeltec-lslidar and is not a hard Depends.
+    configure-network.sh writes field peers to /etc/xgc2/wheeltec/ros_topics.yaml.
+    Do not ship field yaml in a vehicle package.
 ownership:
   paths:
   - /opt/ros/melodic/share/turn_on_wheeltec_robot
   - /opt/ros/melodic/lib/turn_on_wheeltec_robot/wheeltec_robot_node
-  - /opt/ros/melodic/share/wheeltec_swarm_ros_bridge
   - /opt/ros/melodic/share/wheeltec_onboard_autostart
   - /opt/ros/melodic/share/wheeltec_onboard
   - /opt/ros/melodic/share/lslidar_driver
@@ -76,4 +74,4 @@ release:
   dependency_policy:
     xgc2-swarm-ros-bridge: verify
   apt_versions:
-    bionic: 0.1.0-8
+    bionic: 0.1.0-9

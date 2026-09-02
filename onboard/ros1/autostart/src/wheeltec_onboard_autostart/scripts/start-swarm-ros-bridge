@@ -9,11 +9,10 @@ source "${ROS_PREFIX}/setup.bash"
 export ROS_MASTER_URI="${ROS_MASTER_URI:-http://127.0.0.1:11311}"
 export ROS_HOSTNAME="${ROS_HOSTNAME:-localhost}"
 
-SITE_CONFIG="${SWARM_ROS_BRIDGE_CONFIG:-/etc/xgc2/wheeltec/ros_topics.yaml}"
-if [[ -f "${SITE_CONFIG}" ]]; then
-  CONFIG="${SITE_CONFIG}"
-else
-  CONFIG="$(rospack find wheeltec_swarm_ros_bridge)/config/ros_topics.yaml"
+CONFIG="${SWARM_ROS_BRIDGE_CONFIG:-/etc/xgc2/wheeltec/ros_topics.yaml}"
+if [[ ! -f "${CONFIG}" ]]; then
+  echo "missing ${CONFIG}; run Wheeltec · configure network" >&2
+  exit 1
 fi
 
 exec roslaunch wheeltec_onboard_autostart swarm.launch "config_file:=${CONFIG}"

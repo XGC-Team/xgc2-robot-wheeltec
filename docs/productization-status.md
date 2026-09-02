@@ -16,13 +16,11 @@ of this layout. Generic `swarm_ros_bridge` must be `>= 1.1.0-11`.
   launch/wheeltec_robot.launch.
 - The driver package installs its node, supported launch file, and a manual
   installer for the known legacy controller udev identity.
-- The vehicle-specific wheeltec_swarm_ros_bridge package owns the supplied
-  /imu send, /PowerVoltage send (std_msgs/Float32, max 1 Hz, :3002), and
-  /cmd_vel receive configuration plus a launch wrapper around the
-  separately released generic swarm_ros_bridge binary. Voltage uses the
-  chassis topic type as-is. It is not packed into std_msgs/String. The
-  generic binary must include compiled MSG_TYPE4 std_msgs/Float32 before
-  this yaml will start.
+- Official `swarm_ros_bridge` is an APT Depends. Autostart launches
+  `bridge_node` with `/etc/xgc2/wheeltec/ros_topics.yaml`. Field peers
+  are written by `Wheeltec · configure network`. There is no vehicle
+  YAML/launch wrapper package. Voltage stays `std_msgs/Float32`. The
+  generic binary must include compiled MSG_TYPE4 std_msgs/Float32.
 - The wheeltec_onboard_autostart package aggregates chassis + bridge compose
   launches and install-only systemd units. wheeltec_onboard is the install-set
   metapackage and does not Depend lidar.
@@ -62,12 +60,12 @@ of this layout. Generic `swarm_ros_bridge` must be `>= 1.1.0-11`.
 The Debian packages are:
 
 - ros-melodic-xgc2-wheeltec-driver
-- ros-melodic-xgc2-wheeltec-swarm-ros-bridge
 - ros-melodic-xgc2-wheeltec-onboard-autostart
 - ros-melodic-xgc2-wheeltec-onboard
 - optional: ros-melodic-xgc2-wheeltec-lslidar{,-msgs,-driver}
 
-The aggregate package depends on the first two and the standalone generic
-ros-melodic-swarm-ros-bridge package.  The following change adds the release
-metadata and reproducible build checks for this package set; no physical
-vehicle test is implied by a successful container build.
+The aggregate package depends on the driver, autostart, and the standalone
+generic ros-melodic-swarm-ros-bridge package. ros-melodic-xgc2-wheeltec-swarm-ros-bridge
+is retired. The following change adds the release metadata and reproducible
+build checks for this package set; no physical vehicle test is implied by a
+successful container build.
