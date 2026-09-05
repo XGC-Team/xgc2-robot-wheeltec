@@ -1,0 +1,34 @@
+name: Chassis Hold regression
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  udp-regression:
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test production UDP header
+        shell: bash
+        run: |
+          set -euo pipefail
+          include=onboard/ros1/chassis/src/turn_on_wheeltec_robot/include
+          for variant in plain sanitized; do
+            flags=()
+            if [[ "$variant" == sanitized ]]; then
+              flags=(-fsanitize=address,undefined -fno-omit-frame-pointer)
+            fi
+            g++ -std=c++11 -Wall -Wextra -Werror -pthread -g "${flags[@]}" \
+              -I"$include" test/chassis_hold_udp_test.cpp -o /tmp/hold-udp-test
+            timeout 15s /tmp/hold-udp-test frames
+            timeout 15s /tmp/hold-udp-test remove
+          done
