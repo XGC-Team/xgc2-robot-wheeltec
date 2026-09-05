@@ -13,6 +13,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <utility>
 
 namespace xgc_chassis_hold {
 
@@ -124,11 +125,14 @@ class Hub {
     stop_.store(true, std::memory_order_release);
     if (fd_ >= 0) {
       shutdown(fd_, SHUT_RDWR);
-      close(fd_);
-      fd_ = -1;
     }
     if (thread_.joinable()) {
       thread_.join();
+    }
+    // Keep the descriptor stable until the receive thread has exited.
+    if (fd_ >= 0) {
+      close(fd_);
+      fd_ = -1;
     }
   }
 
@@ -159,7 +163,8 @@ class Hub {
   }
 
   void loop() {
-    unsigned char buf[kRequestBytes];
+    // One extra byte distinguishes exact frames from truncated oversized datagrams.
+    unsigned char buf[kRequestBytes + 1u];
     while (!stop_.load(std::memory_order_acquire)) {
       sockaddr_in from;
       socklen_t from_len = sizeof(from);
@@ -182,33 +187,32 @@ class Hub {
       char robot[kRobotIdBytes + 1];
       std::memcpy(robot, buf + 12, kRobotIdBytes);
       robot[kRobotIdBytes] = '\0';
-      Gate *gate = match(robot);
-      if (gate != nullptr) {
-        gate->setHeld(held);
-      }
+      const bool matched = applyHeld(robot, held);
       unsigned char ack[kAckBytes];
       std::memset(ack, 0, sizeof(ack));
       writeU32LE(ack, kMagic);
       ack[4] = kVersion;
       ack[5] = held ? 1 : 0;
-      ack[6] = gate != nullptr ? 0 : 1;
+      ack[6] = matched ? 0 : 1;
       writeU32LE(ack + 8, request_id);
       sendto(fd_, ack, sizeof(ack), 0, reinterpret_cast<sockaddr *>(&from),
              from_len);
     }
   }
 
-  Gate *match(const char *robot_id) {
+  bool applyHeld(const char *robot_id, bool held) {
+    // remove() is the lifetime barrier: it must wait for any zero callback.
+    // Zero callbacks must not synchronously call Hub::add/remove.
     std::lock_guard<std::mutex> lock(mu_);
-    std::map<std::string, Gate *>::iterator exact = gates_.find(robot_id);
-    if (exact != gates_.end()) {
-      return exact->second;
+    std::map<std::string, Gate *>::iterator found = gates_.find(robot_id);
+    if (found == gates_.end()) {
+      found = gates_.find(std::string());
     }
-    std::map<std::string, Gate *>::iterator any = gates_.find(std::string());
-    if (any != gates_.end()) {
-      return any->second;
+    if (found == gates_.end()) {
+      return false;
     }
-    return nullptr;
+    found->second->setHeld(held);
+    return true;
   }
 
   std::mutex mu_;
