@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Block until the standalone ROS master answers. Never start a master.
+set -euo pipefail
+
+ROS_DISTRO="${ROS_DISTRO:-melodic}"
+ROS_PREFIX="/opt/ros/${ROS_DISTRO}"
+if [[ -f "${ROS_PREFIX}/setup.bash" ]]; then
+  set +u
+  # shellcheck disable=SC1090,SC1091
+  source "${ROS_PREFIX}/setup.bash"
+  set -u
+fi
+
+export ROS_MASTER_URI="${ROS_MASTER_URI:-http://127.0.0.1:11311}"
+export ROS_IP="${ROS_IP:-127.0.0.1}"
+
+command -v rosnode >/dev/null 2>&1 || {
+  echo "rosnode missing; standalone xgc2-wheeltec-roscore required" >&2
+  exit 1
+}
+
+timeout_s="${ROSCORE_WAIT_TIMEOUT:-60}"
+deadline=$((SECONDS + timeout_s))
+while [[ ${SECONDS} -lt ${deadline} ]]; do
+  if rosnode list >/dev/null 2>&1; then
+    exit 0
+  fi
+  sleep 0.2
+done
+
+echo "ROS master did not appear at ${ROS_MASTER_URI} (standalone xgc2-wheeltec-roscore required)" >&2
+exit 1

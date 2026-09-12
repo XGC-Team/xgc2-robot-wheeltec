@@ -15,6 +15,7 @@ src/wheeltec_onboard_autostart
   launch/swarm.launch
   launch/lidar.launch
   launch/wheeltec.launch     # chassis + swarm; lidar optional
+  systemd/xgc2-wheeltec-roscore.service
   systemd/xgc2-wheeltec-chassis.service
   systemd/xgc2-wheeltec-swarm-ros-bridge.service
   systemd/xgc2-wheeltec-lidar.service

@@ -23,19 +23,21 @@ onboard/ros1/sensors          lidar only (lslidar_*)
 onboard/ros1/autostart        compose + install-only units
 ```
 
-`apt install ros-melodic-xgc2-wheeltec-onboard` installs chassis, bridge,
-and autostart. No unit is enabled or started. Lidar is a separate package.
+`apt install ros-melodic-xgc2-wheeltec-onboard` installs chassis, standalone
+ROS master, official bridge Depends, and autostart. No unit is enabled or
+started. Lidar is a separate package.
 
 ```text
+xgc2-wheeltec-roscore.service
+  start-roscore: exec roscore (the only process allowed to own ROS master)
 xgc2-wheeltec-chassis.service
-  start-chassis: wait /dev/wheeltec_controller
+  start-chassis: wait-roscore, wait /dev/wheeltec_controller, roslaunch --wait
   wheeltec_onboard_autostart/chassis.launch
-    wheeltec_robot_node  /imu /odom /PowerVoltage /cmd_vel
+    wheeltec_robot_node  /imu /PowerVoltage /cmd_vel
 xgc2-wheeltec-swarm-ros-bridge.service
+  start-swarm-ros-bridge: wait-roscore, wait /imu, roslaunch --wait
   wheeltec_onboard_autostart/swarm.launch
-    send /imu :3001 20 Hz, /PowerVoltage :3002 1 Hz
-    recv /cmd_vel from XGC1 Scout .150, XGC1 Mecanum .199, and XGC2 .251
-      (default :3001; field script may select legacy :3005 or :3301)
+    field yaml /etc/xgc2/wheeltec/ros_topics.yaml (written by configure-network)
 xgc2-wheeltec-lidar.service
   optional; needs ros-melodic-xgc2-wheeltec-lslidar
 ```
@@ -56,6 +58,7 @@ xgc2-wheeltec-lidar.service
 sudo apt-get install ros-melodic-xgc2-wheeltec-onboard
 # postinst installs units and disables vendor boot units; it does not enable
 # product units. Site peer yaml: /etc/xgc2/wheeltec/ros_topics.yaml
+sudo systemctl enable --now xgc2-wheeltec-roscore.service
 sudo systemctl enable --now xgc2-wheeltec-chassis.service
 sudo systemctl enable --now xgc2-wheeltec-swarm-ros-bridge.service
 # do not enable xgc2-wheeltec-lidar.service unless the lidar package is installed

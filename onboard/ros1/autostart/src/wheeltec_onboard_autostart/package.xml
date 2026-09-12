@@ -2,7 +2,7 @@
 <package format="2">
   <name>wheeltec_onboard_autostart</name>
   <version>0.1.0</version>
-  <description>Unified onboard compose and systemd manager: chassis, swarm bridge, optional lidar. Install-only: does not enable or start any unit.</description>
+  <description>Unified onboard compose and systemd manager: standalone ROS master, chassis, swarm bridge, optional lidar. Install-only: does not enable or start any unit.</description>
 
   <maintainer email="apt@example.com">XGC2</maintainer>
   <license>BSD-2-Clause</license>
@@ -10,6 +10,7 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <exec_depend>roslaunch</exec_depend>
+  <exec_depend>rosbash</exec_depend>
   <exec_depend>turn_on_wheeltec_robot</exec_depend>
   <exec_depend>swarm_ros_bridge</exec_depend>
 </package>

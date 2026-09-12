@@ -7,9 +7,13 @@ ROS_PREFIX="/opt/ros/${ROS_DISTRO}"
 source "${ROS_PREFIX}/setup.bash"
 
 export ROS_MASTER_URI="${ROS_MASTER_URI:-http://127.0.0.1:11311}"
-export ROS_HOSTNAME="${ROS_HOSTNAME:-localhost}"
+export ROS_IP="${ROS_IP:-127.0.0.1}"
+export ROS_HOSTNAME="${ROS_HOSTNAME:-${ROS_IP}}"
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+"${HERE}/wait-roscore"
 
 WAIT="${ROS_PREFIX}/lib/wheeltec_onboard_autostart/wait-device"
 "${WAIT}" /dev/wheeltec_lidar --timeout "${LIDAR_WAIT_TIMEOUT:-60}"
 
-exec roslaunch wheeltec_onboard_autostart lidar.launch
+exec roslaunch --wait wheeltec_onboard_autostart lidar.launch

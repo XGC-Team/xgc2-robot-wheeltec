@@ -32,19 +32,33 @@ test ! -d "$PREFIX/share/wheeltec_swarm_ros_bridge"
 test -f "$PREFIX/share/wheeltec_onboard_autostart/launch/wheeltec.launch"
 test -f "$PREFIX/share/wheeltec_onboard_autostart/launch/chassis.launch"
 test -f "$PREFIX/share/wheeltec_onboard_autostart/launch/swarm.launch"
+test -f "$PREFIX/share/wheeltec_onboard_autostart/systemd/xgc2-wheeltec-roscore.service"
 test -f "$PREFIX/share/wheeltec_onboard_autostart/systemd/xgc2-wheeltec-chassis.service"
+test -x "$PREFIX/lib/wheeltec_onboard_autostart/start-roscore"
+test -x "$PREFIX/lib/wheeltec_onboard_autostart/wait-roscore"
 test -x "$PREFIX/lib/wheeltec_onboard_autostart/start-chassis"
 test -x "$PREFIX/lib/wheeltec_onboard_autostart/start-swarm-ros-bridge"
+test -f /lib/systemd/system/xgc2-wheeltec-roscore.service
 test -f /lib/systemd/system/xgc2-wheeltec-chassis.service
 test -f /lib/systemd/system/xgc2-wheeltec-swarm-ros-bridge.service
 test -f /lib/systemd/system/xgc2-wheeltec-lidar.service
 test -f /etc/xgc2/wheeltec/onboard.env
 test ! -e /etc/xgc2/wheeltec/ros_topics.yaml
+test ! -e /etc/systemd/system/multi-user.target.wants/xgc2-wheeltec-roscore.service
 test ! -e /etc/systemd/system/multi-user.target.wants/xgc2-wheeltec-chassis.service
 test ! -e /etc/systemd/system/multi-user.target.wants/xgc2-wheeltec-swarm-ros-bridge.service
 test ! -e /etc/systemd/system/multi-user.target.wants/xgc2-wheeltec-lidar.service
+grep -q 'EnvironmentFile=-/etc/xgc2/wheeltec/onboard.env' /lib/systemd/system/xgc2-wheeltec-roscore.service
 grep -q 'EnvironmentFile=-/etc/xgc2/wheeltec/onboard.env' /lib/systemd/system/xgc2-wheeltec-chassis.service
 grep -q 'EnvironmentFile=-/etc/xgc2/wheeltec/onboard.env' /lib/systemd/system/xgc2-wheeltec-swarm-ros-bridge.service
+grep -q 'After=.*xgc2-wheeltec-roscore.service' /lib/systemd/system/xgc2-wheeltec-chassis.service
+grep -q 'Wants=.*xgc2-wheeltec-roscore.service' /lib/systemd/system/xgc2-wheeltec-chassis.service
+grep -q 'After=.*xgc2-wheeltec-roscore.service' /lib/systemd/system/xgc2-wheeltec-swarm-ros-bridge.service
+grep -q 'Wants=.*xgc2-wheeltec-roscore.service' /lib/systemd/system/xgc2-wheeltec-swarm-ros-bridge.service
+grep -q wait-roscore "$PREFIX/lib/wheeltec_onboard_autostart/start-chassis"
+grep -q wait-roscore "$PREFIX/lib/wheeltec_onboard_autostart/start-swarm-ros-bridge"
+grep -q -- '--wait' "$PREFIX/lib/wheeltec_onboard_autostart/start-chassis"
+grep -q -- '--wait' "$PREFIX/lib/wheeltec_onboard_autostart/start-swarm-ros-bridge"
 grep -q 'missing .* configure network' "$PREFIX/lib/wheeltec_onboard_autostart/start-swarm-ros-bridge"
 
 bridge_stub="$(mktemp)"

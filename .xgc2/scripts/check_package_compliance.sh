@@ -10,6 +10,8 @@ git --git-dir="${REPO_ROOT}/.git" --work-tree="${REPO_ROOT}" diff --check
 shellcheck \
   onboard/ros1/chassis/src/turn_on_wheeltec_robot/scripts/install_wheeltec_controller_udev_rule.sh \
   onboard/ros1/sensors/src/lidar/lslidar_driver/scripts/install_wheeltec_lidar_udev_rule.sh \
+  onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-roscore \
+  onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/wait-roscore \
   onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-chassis \
   onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-swarm-ros-bridge \
   onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-lidar \
@@ -31,9 +33,10 @@ xmllint --noout \
 test ! -d onboard/ros1/communication/src/wheeltec_swarm_ros_bridge
 
 grep -q '^id: xgc2-wheeltec-onboard-ros1$' .xgc2/product.yml
-grep -q '^version: 0.1.0-9$' .xgc2/product.yml
+grep -q '^version: 0.1.0-10$' .xgc2/product.yml
 grep -q 'ros-melodic-xgc2-wheeltec-onboard-autostart' .xgc2/product.yml
 grep -q 'ros-melodic-swarm-ros-bridge (>= 1.1.0-12)' .xgc2/product.yml
+grep -q 'ros-melodic-rosbash' .xgc2/product.yml
 if grep -q 'ros-melodic-xgc2-wheeltec-swarm-ros-bridge' .xgc2/product.yml; then
   echo "retired ros-melodic-xgc2-wheeltec-swarm-ros-bridge must not remain in product.yml" >&2
   exit 1
@@ -45,6 +48,17 @@ grep -q 'ATTRS{serial}=="0002"' onboard/ros1/chassis/src/turn_on_wheeltec_robot/
 grep -q 'ATTRS{serial}=="0001"' onboard/ros1/sensors/src/lidar/lslidar_driver/udev/99-xgc2-wheeltec-lidar.rules
 grep -q '/etc/xgc2/wheeltec/ros_topics.yaml' onboard/ros1/autostart/src/wheeltec_onboard_autostart/launch/swarm.launch
 grep -q 'missing .* configure network' onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-swarm-ros-bridge
+test -f onboard/ros1/autostart/src/wheeltec_onboard_autostart/systemd/xgc2-wheeltec-roscore.service
+grep -q start-roscore onboard/ros1/autostart/src/wheeltec_onboard_autostart/systemd/xgc2-wheeltec-roscore.service
+grep -q wait-roscore onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-chassis
+grep -q wait-roscore onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-swarm-ros-bridge
+grep -q -- '--wait' onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-chassis
+grep -q 'Wants=.*xgc2-wheeltec-roscore.service' onboard/ros1/autostart/src/wheeltec_onboard_autostart/systemd/xgc2-wheeltec-chassis.service
+grep -q 'After=.*xgc2-wheeltec-roscore.service' onboard/ros1/autostart/src/wheeltec_onboard_autostart/systemd/xgc2-wheeltec-swarm-ros-bridge.service
+if grep -q 'chassis must own ROS master' onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-chassis; then
+  echo "chassis must not own ROS master" >&2
+  exit 1
+fi
 
 python3 .xgc2/scripts/xgc2_artifact_manifest.py --help >/dev/null
 

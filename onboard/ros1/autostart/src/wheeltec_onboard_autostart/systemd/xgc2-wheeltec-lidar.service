@@ -1,6 +1,7 @@
 [Unit]
 Description=XGC2 Wheeltec serial lidar (optional)
-After=network.target systemd-udevd.service
+After=network.target systemd-udevd.service xgc2-wheeltec-roscore.service
+Wants=xgc2-wheeltec-roscore.service
 StartLimitIntervalSec=0
 
 [Service]
@@ -13,7 +14,7 @@ EnvironmentFile=-/etc/xgc2/wheeltec/onboard.env
 ExecStart=/opt/ros/melodic/lib/wheeltec_onboard_autostart/start-lidar
 Restart=always
 RestartSec=5
-TimeoutStartSec=90
+TimeoutStartSec=180
 TimeoutStopSec=15
 KillMode=mixed
 

@@ -6,6 +6,8 @@ find_package(catkin REQUIRED)
 catkin_package()
 
 install(PROGRAMS
+  scripts/start-roscore
+  scripts/wait-roscore
   scripts/start-chassis
   scripts/start-swarm-ros-bridge
   scripts/start-lidar

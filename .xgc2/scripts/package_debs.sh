@@ -247,8 +247,8 @@ build_autostart_deb() {
     "$package_root/lib/systemd/system/"
 
   write_control "$package_root" "$deb_package" \
-    "udev, ros-$ROS_DISTRO-roslaunch, ros-$ROS_DISTRO-swarm-ros-bridge (>= 1.1.0-12), $driver_deb (>= $VERSION)" \
-    "XGC2 Wheeltec autostart compose and install-only units"
+    "udev, ros-$ROS_DISTRO-roslaunch, ros-$ROS_DISTRO-rosbash, ros-$ROS_DISTRO-swarm-ros-bridge (>= 1.1.0-12), $driver_deb (>= $VERSION)" \
+    "XGC2 Wheeltec standalone ROS master, autostart compose, and install-only units"
   write_readme "$package_root" "$deb_package" "$ros_package"
 
   cat > "$package_root/DEBIAN/conffiles" <<EOF
@@ -268,7 +268,9 @@ if [ "$1" = "configure" ]; then
     systemctl disable --now turn_on_wheeltec_robot.service >/dev/null 2>&1 || true
     systemctl disable --now swarm_ros_bridge.service >/dev/null 2>&1 || true
     systemctl disable --now teststartup.service >/dev/null 2>&1 || true
-    # Install-only: never enable product units here.
+    systemctl disable --now roscore.service >/dev/null 2>&1 || true
+    # Install-only: never enable product units here. Chassis, standalone
+    # roscore, and the official bridge are operator-owned after linux.
     systemctl disable xgc2-wheeltec-lidar.service >/dev/null 2>&1 || true
   fi
 fi
@@ -280,6 +282,7 @@ EOF
 set -e
 if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
   if command -v systemctl >/dev/null 2>&1; then
+    systemctl disable --now xgc2-wheeltec-roscore.service >/dev/null 2>&1 || true
     systemctl disable --now xgc2-wheeltec-chassis.service >/dev/null 2>&1 || true
     systemctl disable --now xgc2-wheeltec-swarm-ros-bridge.service >/dev/null 2>&1 || true
     systemctl disable --now xgc2-wheeltec-lidar.service >/dev/null 2>&1 || true

@@ -1,7 +1,7 @@
 [Unit]
 Description=XGC2 Wheeltec chassis (serial driver)
-After=network.target local-fs.target systemd-udevd.service dev-wheeltec_controller.device
-Wants=dev-wheeltec_controller.device
+After=network.target local-fs.target systemd-udevd.service dev-wheeltec_controller.device xgc2-wheeltec-roscore.service
+Wants=dev-wheeltec_controller.device xgc2-wheeltec-roscore.service
 StartLimitIntervalSec=0
 
 [Service]
@@ -14,7 +14,7 @@ EnvironmentFile=-/etc/xgc2/wheeltec/onboard.env
 ExecStart=/opt/ros/melodic/lib/wheeltec_onboard_autostart/start-chassis
 Restart=always
 RestartSec=5
-TimeoutStartSec=120
+TimeoutStartSec=240
 TimeoutStopSec=15
 KillMode=mixed
 

@@ -1,0 +1,21 @@
+[Unit]
+Description=XGC2 Wheeltec standalone ROS1 master
+After=network.target
+Before=xgc2-wheeltec-chassis.service xgc2-wheeltec-swarm-ros-bridge.service xgc2-wheeltec-lidar.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=wheeltec
+Group=wheeltec
+WorkingDirectory=/home/wheeltec
+EnvironmentFile=-/etc/xgc2/wheeltec/onboard.env
+ExecStart=/opt/ros/melodic/lib/wheeltec_onboard_autostart/start-roscore
+Restart=always
+RestartSec=2
+TimeoutStartSec=30
+TimeoutStopSec=15
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

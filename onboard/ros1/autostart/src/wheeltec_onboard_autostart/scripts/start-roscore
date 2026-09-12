@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# The only process allowed to own ROS master on the vehicle.
+set -euo pipefail
+
+ROS_DISTRO="${ROS_DISTRO:-melodic}"
+ROS_PREFIX="/opt/ros/${ROS_DISTRO}"
+set +u
+# shellcheck disable=SC1090,SC1091
+source "${ROS_PREFIX}/setup.bash"
+set -u
+
+export ROS_MASTER_URI="${ROS_MASTER_URI:-http://127.0.0.1:11311}"
+export ROS_IP="${ROS_IP:-127.0.0.1}"
+export ROS_HOSTNAME="${ROS_HOSTNAME:-${ROS_IP}}"
+
+sec="${ROSCORE_SETTLE_SEC:-1}"
+echo "xgc2 wheeltec roscore: settle ${sec}s then bind ${ROS_MASTER_URI}"
+sleep "${sec}"
+
+exec roscore
