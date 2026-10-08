@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-find_package(XgcRoboticsInterfaces CONFIG REQUIRED COMPONENTS ChassisHold)
+find_package(XgcRoboticsInterfaces 0.2.0 EXACT CONFIG REQUIRED COMPONENTS ChassisHold)
 
 catkin_package(
   CATKIN_DEPENDS

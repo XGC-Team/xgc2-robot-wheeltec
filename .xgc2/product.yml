@@ -34,7 +34,7 @@ apt:
   - ros-melodic-xgc2-wheeltec-lslidar
   depends:
   - libxgc2-xrpc-dev (>= 0.1.0)
-  - libxgc2-robotics-interfaces-dev
+  - libxgc2-robotics-interfaces-dev (>= 0.2.0)
   - libjsoncpp-dev (>= 1.9.4)
   - ros-melodic-geometry-msgs
   - ros-melodic-nav-msgs

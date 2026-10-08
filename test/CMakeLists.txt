@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(ChassisHoldNativeTests LANGUAGES CXX)
 include(CTest)
-find_package(XgcRoboticsInterfaces CONFIG REQUIRED COMPONENTS ChassisHold)
+find_package(XgcRoboticsInterfaces 0.2.0 EXACT CONFIG REQUIRED COMPONENTS ChassisHold)
 find_package(Threads REQUIRED)
 add_executable(chassis_hold_native_test chassis_hold_native_test.cpp)
 target_compile_features(chassis_hold_native_test PRIVATE cxx_std_20)
