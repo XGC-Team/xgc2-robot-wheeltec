@@ -1,5 +1,7 @@
 <?xml version="1.0"?>
 <launch>
+  <arg name="robot_id" />
+  <arg name="hold_socket" />
   <arg name="usart_port_name" default="/dev/wheeltec_controller" />
   <arg name="serial_baud_rate" default="115200" />
   <arg name="odom_frame_id" default="odom_combined" />
@@ -10,6 +12,8 @@
   <arg name="bridge_config_file" default="/etc/xgc2/wheeltec/ros_topics.yaml" />
 
   <include file="$(find wheeltec_onboard_autostart)/launch/chassis.launch">
+    <arg name="robot_id" value="$(arg robot_id)" />
+    <arg name="hold_socket" value="$(arg hold_socket)" />
     <arg name="usart_port_name" value="$(arg usart_port_name)" />
     <arg name="serial_baud_rate" value="$(arg serial_baud_rate)" />
     <arg name="odom_frame_id" value="$(arg odom_frame_id)" />

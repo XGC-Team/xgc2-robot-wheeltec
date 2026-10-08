@@ -33,6 +33,9 @@ apt:
   - ros-melodic-xgc2-wheeltec-lslidar-driver
   - ros-melodic-xgc2-wheeltec-lslidar
   depends:
+  - libxgc2-xrpc-dev (>= 0.1.0)
+  - libxgc2-robotics-interfaces-dev
+  - libjsoncpp-dev (>= 1.9.4)
   - ros-melodic-geometry-msgs
   - ros-melodic-nav-msgs
   - ros-melodic-roscpp
@@ -49,9 +52,9 @@ usage:
     sudo apt install ros-melodic-xgc2-wheeltec-onboard
   smoke_test: |
     rospack find turn_on_wheeltec_robot
-    roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch
+    roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch robot_id:=launch-validation hold_socket:=/tmp/launch-validation.sock
     rospack find wheeltec_onboard_autostart
-    roslaunch --files wheeltec_onboard_autostart chassis.launch
+    roslaunch --files wheeltec_onboard_autostart chassis.launch robot_id:=launch-validation hold_socket:=/tmp/launch-validation.sock
   notes: |
     Install set is chassis + autostart compose. Official swarm_ros_bridge
     is an APT Depends. Units are installed and not enabled. After install,
@@ -73,6 +76,8 @@ release:
   workflow: release.yml
   ci_workflow: ci.yml
   dependency_policy:
+    xgc2-xrpc: verify
+    xgc2-robotics-interfaces: verify
     xgc2-swarm-ros-bridge: verify
   apt_versions:
     bionic: 0.1.0-10

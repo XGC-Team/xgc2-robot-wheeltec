@@ -1,6 +1,7 @@
 #include "wheeltec_robot.h"
 #include "Quaternion_Solution.h"
 #include <stdexcept>
+extern char **environ;
 
 sensor_msgs::Imu Mpu6050;//Instantiate an IMU object //实例化IMU对象 
 
@@ -52,24 +53,21 @@ Date: January 28, 2021
 Function: The speed topic subscription Callback function, according to the subscribed instructions through the serial port command control of the lower computer
 功能: 速度话题订阅回调函数Callback，根据订阅的指令通过串口发指令控制下位机
 ***************************************/
-void turn_on_robot::HoldZeroThunk(void *self)
+bool turn_on_robot::ApplyHoldZero(void *self, std::size_t robot) noexcept
 {
-  static_cast<turn_on_robot *>(self)->HoldZero();
-}
-
-void turn_on_robot::HoldZero()
-{
-  geometry_msgs::Twist zero;
-  Cmd_Vel_Callback(zero);
+  if (robot != 0) return false;
+  try { return static_cast<turn_on_robot *>(self)->WriteMotion(geometry_msgs::Twist{}); }
+  catch (...) { return false; }
 }
 
 void turn_on_robot::Cmd_Vel_Callback(const geometry_msgs::Twist &twist_aux)
 {
-  if (hold_gate_.held() && (twist_aux.linear.x != 0.0 || twist_aux.linear.y != 0.0 ||
-                            twist_aux.angular.z != 0.0)) {
-    HoldZero();
-    return;
-  }
+  const bool held = !hold_provider_ || !hold_provider_->healthy() || hold_provider_->held();
+  (void)WriteMotion(held ? geometry_msgs::Twist{} : twist_aux);
+}
+
+bool turn_on_robot::WriteMotion(const geometry_msgs::Twist &twist_aux)
+{
   short  transition;  //intermediate variable //中间变量
 
   Send_Data.tx[0]=FRAME_HEADER; //frame head 0x7B //帧头0X7B
@@ -101,11 +99,12 @@ void turn_on_robot::Cmd_Vel_Callback(const geometry_msgs::Twist &twist_aux)
   Send_Data.tx[10]=FRAME_TAIL; //frame tail 0x7D //帧尾0X7D
   try
   {
-    Stm32_Serial.write(Send_Data.tx,sizeof (Send_Data.tx)); //Sends data to the downloader via serial port //通过串口向下位机发送数据 
+    return Stm32_Serial.write(Send_Data.tx,sizeof (Send_Data.tx)) == sizeof(Send_Data.tx);
   }
-  catch (serial::IOException& e)   
+  catch (const std::exception &)
   {
     ROS_ERROR_STREAM("Unable to send data through serial port"); //If sending data fails, an error message is printed //如果发送数据失败，打印错误信息
+    return false;
   }
 }
 /**************************************
@@ -448,6 +447,12 @@ int turn_on_robot::Control()
   const double frame_timeout_s = 15.0;
   while(ros::ok())
   {
+    if (!hold_provider_->healthy()) {
+      (void)ApplyHoldZero(this, 0);
+      ROS_ERROR("wheeltec chassis hold HTTP owner unavailable");
+      return 1;
+    }
+    hold_provider_->control_tick(&turn_on_robot::ApplyHoldZero, this);
     Sampling_Time = (_Now - _Last_Time).toSec(); //Retrieves time interval, which is used to integrate velocity to obtain displacement (mileage) 
                                                  //获取时间间隔，用于积分速度获得位移(里程)
     _Now = ros::Time::now();
@@ -487,7 +492,7 @@ Date: January 28, 2021
 Function: Constructor, executed only once, for initialization
 功能: 构造函数, 只执行一次，用于初始化
 ***************************************/
-turn_on_robot::turn_on_robot():Sampling_Time(0),Power_voltage(0),hold_gate_(std::string())
+turn_on_robot::turn_on_robot():Sampling_Time(0),Power_voltage(0)
 {
   //Clear the data
   //清空数据
@@ -513,8 +518,6 @@ turn_on_robot::turn_on_robot():Sampling_Time(0),Power_voltage(0),hold_gate_(std:
   //Set the velocity control command callback function
   //速度控制命令订阅回调函数设置
   Cmd_Vel_Sub     = n.subscribe("cmd_vel",     100, &turn_on_robot::Cmd_Vel_Callback, this);
-  hold_gate_.setZeroThunk(&turn_on_robot::HoldZeroThunk, this);
-  xgc_chassis_hold::Hub::instance().add(&hold_gate_);
 
   ROS_INFO_STREAM("Data ready"); //Prompt message //提示信息
   
@@ -523,7 +526,9 @@ turn_on_robot::turn_on_robot():Sampling_Time(0),Power_voltage(0),hold_gate_(std:
     //Attempts to initialize and open the serial port //尝试初始化与开启串口
     Stm32_Serial.setPort(usart_port_name); //Select the serial port number to enable //选择要开启的串口号
     Stm32_Serial.setBaudrate(serial_baud_rate); //Set the baud rate //设置波特率
-    serial::Timeout _time = serial::Timeout::simpleTimeout(2000); //Timeout //超时等待
+    // Sensor absence must not block the sole command executor for seconds.
+    serial::Timeout _time = serial::Timeout::simpleTimeout(10);
+    _time.write_timeout_constant = 100;
     Stm32_Serial.setTimeout(_time);
     Stm32_Serial.open(); //Open the serial port //开启串口
     // CDC ACM ignores a timeout applied only before open; set it again.
@@ -542,6 +547,18 @@ turn_on_robot::turn_on_robot():Sampling_Time(0),Power_voltage(0),hold_gate_(std:
     throw std::runtime_error("wheeltec_robot serial port is not open: " + usart_port_name);
   }
   ROS_INFO_STREAM("wheeltec_robot serial port opened");
+  xgc2::chassis_hold::Options hold;
+  std::string robot_id;
+  if (!private_nh.getParam("hold_robot_id", robot_id) ||
+      !private_nh.getParam("hold_socket", hold.socket_path))
+    throw std::invalid_argument("explicit hold_robot_id and hold_socket required");
+  hold.target_id = robot_id;
+  hold.robot_ids = {robot_id};
+  hold.instance_id = xgc2::xrpc::new_instance_id();
+  hold.environment = xgc2::chassis_hold::environment_snapshot(environ);
+  if (!ApplyHoldZero(this, 0))
+    throw std::runtime_error("wheeltec_robot initial zero write failed");
+  hold_provider_ = std::make_unique<xgc2::chassis_hold::Provider>(std::move(hold));
 }
 /**************************************
 Date: January 28, 2021
@@ -550,34 +567,11 @@ Function: Destructor, executed only once and called by the system when an object
 ***************************************/
 turn_on_robot::~turn_on_robot()
 {
-  xgc_chassis_hold::Hub::instance().remove(&hold_gate_);
-  //Sends the stop motion command to the lower machine before the turn_on_robot object ends
-  //对象turn_on_robot结束前向下位机发送停止运动命令
-  Send_Data.tx[0]=FRAME_HEADER;
-  Send_Data.tx[1] = 0;  
-  Send_Data.tx[2] = 0; 
-
-  //The target velocity of the X-axis of the robot //机器人X轴的目标线速度 
-  Send_Data.tx[4] = 0;     
-  Send_Data.tx[3] = 0;  
-
-  //The target velocity of the Y-axis of the robot //机器人Y轴的目标线速度 
-  Send_Data.tx[6] = 0;
-  Send_Data.tx[5] = 0;  
-
-  //The target velocity of the Z-axis of the robot //机器人Z轴的目标角速度 
-  Send_Data.tx[8] = 0;  
-  Send_Data.tx[7] = 0;    
-  Send_Data.tx[9]=Check_Sum(9,SEND_DATA_CHECK); //Check the bits for the Check_Sum function //校验位，规则参见Check_Sum函数
-  Send_Data.tx[10]=FRAME_TAIL; 
-  try
-  {
-    Stm32_Serial.write(Send_Data.tx,sizeof (Send_Data.tx)); //Send data to the serial port //向串口发数据  
-  }
-  catch (serial::IOException& e)   
-  {
-    ROS_ERROR_STREAM("Unable to send data through serial port"); //If sending data fails, an error message is printed //如果发送数据失败,打印错误信息
-  }
-  Stm32_Serial.close(); //Close the serial port //关闭串口  
-  ROS_INFO_STREAM("Shutting down"); //Prompt message //提示信息
+  // Native command work has stopped. Keep the provider's source lease until
+  // its final native zero and serial output context have both ended.
+  (void)ApplyHoldZero(this, 0);
+  try { Stm32_Serial.close(); }
+  catch (const std::exception &) { ROS_ERROR_STREAM("Unable to close serial port"); }
+  hold_provider_.reset();
+  ROS_INFO_STREAM("Shutting down");
 }

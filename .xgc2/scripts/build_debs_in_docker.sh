@@ -80,9 +80,9 @@ docker run "${docker_args[@]}" "$DOCKER_IMAGE" bash -lc '
 send_topics: []
 recv_topics: []
 YAML
-    roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch >/dev/null
+    roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch robot_id:=launch-validation hold_socket:=/tmp/launch-validation.sock >/dev/null
     roslaunch --files wheeltec_onboard_autostart swarm.launch "config_file:=${bridge_stub}" >/dev/null
-    roslaunch --files wheeltec_onboard_autostart wheeltec.launch "bridge_config_file:=${bridge_stub}" >/dev/null
+    roslaunch --files wheeltec_onboard_autostart wheeltec.launch "bridge_config_file:=${bridge_stub}" robot_id:=launch-validation hold_socket:=/tmp/launch-validation.sock >/dev/null
     rm -f -- "${bridge_stub}"
 
     /workspace/repo/.xgc2/scripts/package_debs.sh --install-root "$WORKSPACE/install-root" --output-dir /workspace/out

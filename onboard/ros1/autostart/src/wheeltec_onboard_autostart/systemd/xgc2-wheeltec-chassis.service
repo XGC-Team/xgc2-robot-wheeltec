@@ -9,6 +9,9 @@ Type=simple
 User=wheeltec
 Group=wheeltec
 SupplementaryGroups=dialout
+RuntimeDirectory=xgc2-wheeltec-chassis
+RuntimeDirectoryMode=0700
+Environment=XGC2_CHASSIS_HOLD_SOCKET=/run/xgc2-wheeltec-chassis/hold.sock
 WorkingDirectory=/home/wheeltec
 EnvironmentFile=-/etc/xgc2/wheeltec/onboard.env
 ExecStart=/opt/ros/melodic/lib/wheeltec_onboard_autostart/start-chassis

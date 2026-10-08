@@ -8,27 +8,58 @@ permissions:
   contents: read
 
 jobs:
-  udp-regression:
+  native-http:
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 5
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        variant: [plain, sanitized]
+    env:
+      XRPC_REVISION: ${{ vars.XGC2_XRPC_REVISION }}
+      INTERFACES_REVISION: ${{ vars.XGC2_ROBOTICS_INTERFACES_REVISION }}
     steps:
       - uses: actions/checkout@v4
-      - name: Build and test production UDP header
+      - name: Require immutable dependency revisions
         shell: bash
         run: |
           set -euo pipefail
-          include=onboard/ros1/chassis/src/turn_on_wheeltec_robot/include
-          for variant in plain sanitized; do
-            flags=()
-            if [[ "$variant" == sanitized ]]; then
-              flags=(-fsanitize=address,undefined -fno-omit-frame-pointer)
-            fi
-            g++ -std=c++11 -Wall -Wextra -Werror -pthread -g "${flags[@]}" \
-              -I"$include" test/chassis_hold_udp_test.cpp -o /tmp/hold-udp-test
-            timeout 15s /tmp/hold-udp-test frames
-            timeout 15s /tmp/hold-udp-test remove
-          done
+          [[ "$XRPC_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$INTERFACES_REVISION" =~ ^[0-9a-f]{40}$ ]]
+      - uses: actions/checkout@v4
+        with:
+          repository: XGC-Team/xgc2-xrpc
+          ref: ${{ env.XRPC_REVISION }}
+          path: _dependencies/xrpc
+      - uses: actions/checkout@v4
+        with:
+          repository: XGC-Team/xgc2-robotics-interfaces
+          ref: ${{ env.INTERFACES_REVISION }}
+          path: _dependencies/robotics-interfaces
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libboost-dev libjsoncpp-dev
+      - name: Build installed SDK and common headers, then exercise native hold
+        shell: bash
+        run: |
+          set -euo pipefail
+          prefix="$RUNNER_TEMP/chassis-prefix"
+          flags=()
+          if [[ "${{ matrix.variant }}" == sanitized ]]; then
+            flags=(-DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+                   -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined"
+                   -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined")
+          fi
+          cmake -S _dependencies/xrpc -B "$RUNNER_TEMP/xrpc-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=OFF -DXGC2_XRPC_ENABLE_GRPC=OFF \
+            -DCMAKE_INSTALL_PREFIX="$prefix" "${flags[@]}"
+          cmake --build "$RUNNER_TEMP/xrpc-build" --parallel 2
+          cmake --install "$RUNNER_TEMP/xrpc-build"
+          cmake -S _dependencies/robotics-interfaces -B "$RUNNER_TEMP/interfaces-build" \
+            -DCMAKE_INSTALL_PREFIX="$prefix"
+          cmake --install "$RUNNER_TEMP/interfaces-build"
+          cmake -S test -B "$RUNNER_TEMP/chassis-test" -G Ninja \
+            -DCMAKE_PREFIX_PATH="$prefix" -DCMAKE_BUILD_TYPE=Debug "${flags[@]}"
+          cmake --build "$RUNNER_TEMP/chassis-test" --parallel 2
+          ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 \
+            ctest --test-dir "$RUNNER_TEMP/chassis-test" --output-on-failure
