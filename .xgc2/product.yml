@@ -77,7 +77,7 @@ release:
   ci_workflow: ci.yml
   dependency_policy:
     xgc2-xrpc: verify
-    xgc2-robotics-interfaces: verify
+    libxgc2-robotics-interfaces-dev: verify
     xgc2-swarm-ros-bridge: verify
   apt_versions:
     bionic: 0.1.0-10
