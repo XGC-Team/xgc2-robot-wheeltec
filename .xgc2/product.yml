@@ -74,7 +74,6 @@ release:
   workflow: release.yml
   ci_workflow: ci.yml
   dependency_policy:
-    xgc2-xrpc: verify
     libxgc2-chassis-hold-dev: verify
     xgc2-swarm-ros-bridge: verify
   apt_versions:
