@@ -1,12 +1,11 @@
 name: Chassis Hold regression
-
 on:
+  push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   native-http:
     runs-on: ${{ matrix.runner }}
@@ -16,50 +15,52 @@ jobs:
       matrix:
         runner: [ubuntu-24.04, ubuntu-24.04-arm]
         variant: [plain, sanitized]
-    env:
-      XRPC_REVISION: ${{ vars.XGC2_XRPC_REVISION }}
-      INTERFACES_REVISION: ${{ vars.XGC2_ROBOTICS_INTERFACES_REVISION }}
     steps:
       - uses: actions/checkout@v4
-      - name: Require immutable dependency revisions
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$XRPC_REVISION" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$INTERFACES_REVISION" =~ ^[0-9a-f]{40}$ ]]
       - uses: actions/checkout@v4
         with:
           repository: XGC-Team/xgc2-xrpc
-          ref: ${{ env.XRPC_REVISION }}
+          ref: f8a9258f7d3c395ccdef27405cccadceb794884c
           path: _dependencies/xrpc
       - uses: actions/checkout@v4
         with:
-          repository: XGC-Team/xgc2-robotics-interfaces
-          ref: ${{ env.INTERFACES_REVISION }}
-          path: _dependencies/robotics-interfaces
-      - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build libboost-dev libjsoncpp-dev
-      - name: Build installed SDK and common headers, then exercise native hold
-        shell: bash
+          repository: XGC-Team/xgc2-state-machine
+          ref: 846a75c798b8722d7b5af7d569378e092340dc19
+          path: _dependencies/state-machine
+      - uses: actions/checkout@v4
+        with:
+          repository: XGC-Team/xgc2-chassis-hold
+          ref: 35ce45b2996824a49c32328342a9c231215907e8
+          path: _dependencies/chassis-hold
+      - name: Exercise installed HOLD against pinned SDKs
+        env:
+          VARIANT: ${{ matrix.variant }}
         run: |
-          set -euo pipefail
-          prefix="$RUNNER_TEMP/chassis-prefix"
-          flags=()
-          if [[ "${{ matrix.variant }}" == sanitized ]]; then
-            flags=(-DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
-                   -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined"
-                   -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined")
-          fi
-          cmake -S _dependencies/xrpc -B "$RUNNER_TEMP/xrpc-build" -G Ninja \
-            -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=OFF -DXGC2_XRPC_ENABLE_GRPC=OFF \
-            -DCMAKE_INSTALL_PREFIX="$prefix" "${flags[@]}"
-          cmake --build "$RUNNER_TEMP/xrpc-build" --parallel 2
-          cmake --install "$RUNNER_TEMP/xrpc-build"
-          cmake -S _dependencies/robotics-interfaces -B "$RUNNER_TEMP/interfaces-build" \
-            -DCMAKE_INSTALL_PREFIX="$prefix"
-          cmake --install "$RUNNER_TEMP/interfaces-build"
-          cmake -S test -B "$RUNNER_TEMP/chassis-test" -G Ninja \
-            -DCMAKE_PREFIX_PATH="$prefix" -DCMAKE_BUILD_TYPE=Debug "${flags[@]}"
-          cmake --build "$RUNNER_TEMP/chassis-test" --parallel 2
-          ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 \
-            ctest --test-dir "$RUNNER_TEMP/chassis-test" --output-on-failure
+          docker run --rm --network none --user "$(id -u):$(id -g)" \
+            -e VARIANT -e CC=clang-10 -e CXX=clang++-10 \
+            -v "$GITHUB_WORKSPACE:/repo:ro" -v "$RUNNER_TEMP:/scratch" \
+            ghcr.io/xgc-team/xgc2-images/xgc2-build-focal-full-noetic@sha256:fce2d76fddf4f6439bf0a188249b731650febdc163befc360bed186b269d252a \
+            bash -lc '
+              set -euo pipefail
+              work="/scratch/chassis-$VARIANT"
+              prefix="$work/prefix"
+              flags=()
+              if [[ "$VARIANT" == sanitized ]]; then
+                flags=(-DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+                       -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined"
+                       -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined")
+              fi
+              for component in state-machine xrpc chassis-hold; do
+                cmake -S "/repo/_dependencies/$component" -B "$work/$component" \
+                  -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=OFF \
+                  -DCMAKE_PREFIX_PATH="$prefix" -DCMAKE_INSTALL_PREFIX="$prefix" "${flags[@]}"
+                cmake --build "$work/$component" --parallel 2
+                cmake --install "$work/$component"
+              done
+              cmake -S /repo/test -B "$work/consumer" -DCMAKE_PREFIX_PATH="$prefix" \
+                -DCMAKE_BUILD_TYPE=Debug "${flags[@]}"
+              cmake --build "$work/consumer" --parallel 2
+              cd "$work/consumer"
+              ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 \
+                ctest --output-on-failure
+            '

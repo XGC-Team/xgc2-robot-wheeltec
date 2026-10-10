@@ -229,14 +229,14 @@ bool turn_on_robot::Get_Sensor_Data()
 { 
   short transition_16=0, j=0, Header_Pos=0, Tail_Pos=0; //Intermediate variable //中间变量
   static int flag_error=0,temp=1; //Static variable that records the error flag and location //静态变量，用于记录出错标志位和出错位置
-  uint8_t Receive_Data_Pr[RECEIVE_DATA_SIZE]={0},Receive_Data_Tr[temp]={0}; //Temporary variable to save the data of the lower machine //临时变量，保存下位机数据
+  uint8_t Receive_Data_Pr[RECEIVE_DATA_SIZE]={0},Receive_Data_Tr[RECEIVE_DATA_SIZE]={0}; // Fixed storage; temp is the number of bytes to discard.
   if(flag_error==0) //Normal condition detected //检测到正常情况
     Stm32_Serial.read(Receive_Data_Pr,sizeof (Receive_Data_Pr)); //Read the data sent by the lower computer through the serial port //通过串口读取下位机发送过来的数据
   else if (flag_error==1) //Error condition detected 检测到错误情况
   {
     //Read wrong bit data through serial port, read only and do not process, so that the correct data is read next time
     //通过串口读取错位数据，只读取不处理，以便于下次读取到的是正确的数据
-    Stm32_Serial.read(Receive_Data_Tr,sizeof (Receive_Data_Tr)); 
+    Stm32_Serial.read(Receive_Data_Tr,static_cast<size_t>(temp));
     flag_error=0; //Error flag position 0 //错误标志位置0
   }
 
@@ -547,18 +547,17 @@ turn_on_robot::turn_on_robot():Sampling_Time(0),Power_voltage(0)
     throw std::runtime_error("wheeltec_robot serial port is not open: " + usart_port_name);
   }
   ROS_INFO_STREAM("wheeltec_robot serial port opened");
-  xgc2::chassis_hold::Options hold;
+  xgc2::chassis_hold::ServerOptions hold;
   std::string robot_id;
   if (!private_nh.getParam("hold_robot_id", robot_id) ||
       !private_nh.getParam("hold_socket", hold.socket_path))
     throw std::invalid_argument("explicit hold_robot_id and hold_socket required");
   hold.target_id = robot_id;
   hold.robot_ids = {robot_id};
-  hold.instance_id = xgc2::xrpc::new_instance_id();
   hold.environment = xgc2::chassis_hold::environment_snapshot(environ);
   if (!ApplyHoldZero(this, 0))
     throw std::runtime_error("wheeltec_robot initial zero write failed");
-  hold_provider_ = std::make_unique<xgc2::chassis_hold::Provider>(std::move(hold));
+  hold_provider_ = std::make_unique<xgc2::chassis_hold::HoldServer>(std::move(hold));
 }
 /**************************************
 Date: January 28, 2021

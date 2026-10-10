@@ -8,6 +8,8 @@
   <license>BSD-2-Clause</license>
 
   <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>libxgc2-chassis-hold-dev</build_depend>
+  <exec_depend>libxgc2-chassis-hold0</exec_depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>roscpp</depend>

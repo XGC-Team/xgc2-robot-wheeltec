@@ -1,4 +1,6 @@
-#include <xgc2/chassis_hold/provider.hpp>
+#include <xgc2/chassis_hold/server.hpp>
+#include <xgc2/chassis_hold/rpc_handler.hpp>
+#include <json/json.h>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -17,6 +19,10 @@ thread_local bool reject_native_allocations = false;
   if (auto *pointer = std::malloc(size ? size : 1)) return pointer;
   throw std::bad_alloc();
 }
+[[gnu::noinline]] void *operator new(std::size_t size, const std::nothrow_t &) noexcept {
+  try { return ::operator new(size); } catch (...) { return nullptr; }
+}
+[[gnu::noinline]] void operator delete(void *pointer, const std::nothrow_t &) noexcept { std::free(pointer); }
 [[gnu::noinline]] void operator delete(void *pointer) noexcept { std::free(pointer); }
 [[gnu::noinline]] void operator delete(void *pointer, std::size_t) noexcept { std::free(pointer); }
 
@@ -42,7 +48,7 @@ struct Directory {
 };
 struct Sink {
   std::thread::id owner = std::this_thread::get_id();
-  chassis_hold::State *state = nullptr;
+  chassis_hold::HoldState *state = nullptr;
   int writes = 0;
   int fail_robot = -1;
   bool wrong_thread = false, unmasked = false;
@@ -82,7 +88,7 @@ std::string batch(std::uint64_t revision, bool held) {
     ",\"changes\":[{\"robot_id\":\"scout\",\"held\":" + (held ? "true" : "false") + "}]}";
 }
 void state_contract() {
-  chassis_hold::State state(2);
+  chassis_hold::HoldState state(2);
   Sink sink;
   sink.state = &state;
   chassis_hold::Command command;
@@ -90,9 +96,7 @@ void state_contract() {
   command.count = 2;
   command.changes[0] = {0, true};
   command.changes[1] = {1, true};
-  reject_native_allocations = true;
   auto result = state.apply(command, Sink::zero, &sink);
-  reject_native_allocations = false;
   require(result.outcome == chassis_hold::Outcome::Applied && result.revision == 1,
           "native batch did not apply");
   require(sink.writes == 2 && !sink.unmasked && !sink.wrong_thread,
@@ -113,9 +117,22 @@ void state_contract() {
   require(result.outcome == chassis_hold::Outcome::Applied && result.revision == 3 &&
           !state.held(0) && !state.held(1), "release didn't zero before opening");
 }
+void runtime_failure_contract() {
+  chassis_hold::HoldState state(2);
+  Sink sink;
+  chassis_hold::Command command;
+  command.mutate = true;
+  command.count = 1;
+  command.changes[0] = {0, false};
+  reject_native_allocations = true;
+  const auto result = state.apply(command, Sink::zero, &sink);
+  reject_native_allocations = false;
+  require(result.outcome == chassis_hold::Outcome::Failed && !state.healthy() &&
+          state.held(0) && state.held(1), "runtime allocation failure opened a gate or claimed applied");
+}
 void transport_contract() {
   Directory directory;
-  chassis_hold::Options options;
+  chassis_hold::ServerOptions options;
   options.socket_path = directory.path + "/hold.sock";
   options.target_id = "fixture";
   options.instance_id = xrpc::new_instance_id();
@@ -127,12 +144,12 @@ void transport_contract() {
     auto invalid = options;
     invalid.environment = {environment};
     bool rejected = false;
-    try { chassis_hold::Provider forbidden(invalid); }
+    try { chassis_hold::HoldServer forbidden(invalid); }
     catch (const xrpc::RuntimePolicyError &) { rejected = true; }
     require(rejected && !std::filesystem::exists(options.socket_path),
             "unsupported/unknown/over-ceiling policy opened an endpoint");
   }
-  chassis_hold::Provider provider(options);
+  chassis_hold::HoldServer provider(options);
   xrpc::HttpClient discovery(options.socket_path);
   auto description = json(discovery.call(request("GET", "/v1/chassis/descriptor"),
                                          xrpc::Clock::now()+seconds(1)));
@@ -147,7 +164,7 @@ void transport_contract() {
       policy_applied = field["value"].asInt() == 1000 && field["source"] == "environment";
   require(policy_applied, "effective startup policy omitted environment source/value");
   bool conflict_owner = false;
-  try { chassis_hold::Provider duplicate(options); }
+  try { chassis_hold::HoldServer duplicate(options); }
   catch (const std::exception &) { conflict_owner = true; }
   require(conflict_owner && std::filesystem::exists(options.socket_path),
           "duplicate host took or removed a live endpoint");
@@ -160,8 +177,9 @@ void transport_contract() {
   auto first = call("POST", batch(0, true));
   await([&] { return provider.pending() == 1; });
   require(sink.writes == 0, "RPC thread wrote native output");
-  reject_native_allocations = true;
   provider.control_tick(Sink::zero, &sink);
+  reject_native_allocations = true;
+  require(provider.held() && provider.control_tick(Sink::zero, &sink) == 0, "idle gate allocated or processed work");
   reject_native_allocations = false;
   auto receipt = json(first.get());
   require(receipt["stage"] == "applied" && receipt["revision"].asUInt64() == 1 &&
@@ -177,7 +195,8 @@ void transport_contract() {
       "{\"expected_revision\":1,\"changes\":[{\"robot_id\":\"unknown\",\"held\":false}]}",
       "{\"expected_revision\":1,\"changes\":[{\"robot_id\":\"\",\"held\":false}]}",
       "{\"expected_revision\":1,\"changes\":[{\"robot_id\":\"scout\",\"held\":false},{\"robot_id\":\"scout\",\"held\":true}]}",
-      batch(1,false) + "garbage"}) {
+      batch(1,false) + "garbage", batch(1,false) + " /* comment */",
+      "{\"expected_revision\":1,\"expected_revision\":2,\"changes\":[{\"robot_id\":\"scout\",\"held\":false}]}"}) {
     require(client.call(request("POST", "/v1/chassis/hold", body),
                         xrpc::Clock::now()+seconds(1)).status == 400,
             "malformed/ambiguous domain payload accepted");
@@ -298,12 +317,12 @@ void transport_contract() {
 
 void shutdown_contract() {
   Directory directory;
-  chassis_hold::Options options;
+  chassis_hold::ServerOptions options;
   options.socket_path = directory.path + "/shutdown.sock";
   options.target_id = "fixture";
   options.instance_id = xrpc::new_instance_id();
   options.robot_ids = {"scout"};
-  auto provider = std::make_unique<chassis_hold::Provider>(options);
+  auto provider = std::make_unique<chassis_hold::HoldServer>(options);
   xrpc::HttpClient client(options.socket_path, {}, options.instance_id);
   auto queued = std::async(std::launch::async, [&] {
     return client.call(request("POST", "/v1/chassis/hold", batch(0, true)),
@@ -322,7 +341,7 @@ void shutdown_contract() {
           "shutdown claimed applied or retained a quiescent endpoint");
   client.close();
   options.instance_id = xrpc::new_instance_id();
-  provider = std::make_unique<chassis_hold::Provider>(options);
+  provider = std::make_unique<chassis_hold::HoldServer>(options);
 
   struct ExecutingSink {
     std::atomic<bool> entered{false}, release{false};
@@ -353,7 +372,7 @@ void shutdown_contract() {
       unknown = error.delivery == xrpc::Delivery::OutcomeUnknown;
     }
     bool replacement_rejected = false;
-    try { chassis_hold::Provider replacement(options); }
+    try { chassis_hold::HoldServer replacement(options); }
     catch (const std::exception &) { replacement_rejected = true; }
     require(unknown && replacement_rejected && provider->pending() == 1 &&
             sink.writes.load(std::memory_order_acquire) == 0,
@@ -372,24 +391,23 @@ void shutdown_contract() {
   require(!std::filesystem::exists(options.socket_path), "executing work leaked its owner lease");
 }
 
-void embedded_contract() {
+void shared_host_contract() {
   Directory directory;
-  chassis_hold::Options options;
+  chassis_hold::RpcOptions options;
   options.socket_path = directory.path + "/world.sock";
   options.target_id = "world";
   options.instance_id = xrpc::new_instance_id();
   options.robot_ids = {"scout"};
-  options.embedded = true;
   options.host_policy = std::make_shared<xrpc::RuntimePolicy>(
       xrpc::resolve_runtime_policy(xrpc::RuntimePolicyOptions{}));
   std::promise<void> ready;
   auto started = ready.get_future();
   std::atomic<bool> stopping{false};
-  chassis_hold::Provider *native = nullptr;
+  chassis_hold::HoldRpcHandler *native = nullptr;
   std::thread framework([&] {
     bool announced = false;
     try {
-      auto routes = std::make_unique<chassis_hold::Provider>(options);
+      auto routes = std::make_unique<chassis_hold::HoldRpcHandler>(options);
       require(!std::filesystem::exists(options.socket_path), "embedded provider opened a second listener");
       xrpc::UnixOptions endpoint;
       endpoint.path = options.socket_path;
@@ -447,10 +465,15 @@ void embedded_contract() {
 } // namespace
 int main() {
   try {
+    std::cerr << "CHECK state_contract\n";
     state_contract();
+    std::cerr << "CHECK transport_contract\n";
+    runtime_failure_contract();
     transport_contract();
+    std::cerr << "CHECK shutdown_contract\n";
     shutdown_contract();
-    embedded_contract();
+    std::cerr << "CHECK shared_host_contract\n";
+    shared_host_contract();
     std::cout << "PASS native hold CAS, batch, instance, deadline, output and failure contract\n";
   } catch (const std::exception &error) {
     std::cerr << "FAIL " << error.what() << '\n';

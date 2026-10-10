@@ -1,7 +1,7 @@
 # Chassis hold v1
 
 The private UDP Hub is retired. The platform control route uses the installed
-`XgcRoboticsInterfaces::ChassisHold` component and the actual XRPC HTTP SDK.
+`XgcChassisHold::Server` component and the actual XRPC HTTP SDK.
 One native chassis process owns one Unix endpoint; world embedding shares its
 framework's existing endpoint and instance. `hold_robot_id` and `hold_socket`
 are explicit launch inputs. The systemd unit owns `/run/xgc2-wheeltec-chassis` (0700),
@@ -68,27 +68,30 @@ writes are the SDK-owned lease/socket in the explicitly owned runtime directory.
 
 `test/CMakeLists.txt` consumes installed dependencies and exercises real Unix
 HTTP, CAS, batch masking, partial native failure, release zero, native output
-thread ownership, no native allocation, malformed payloads, stale instance,
+thread ownership, allocation-free gate/idle queries, malformed payloads, stale instance,
 deadline, retained cancellation, overload, queued/executing shutdown lifetime,
 and framework embedding. The workflow tests amd64/arm64 plain and ASan/UBSan,
-including the complete SDK libraries. CI requires immutable 40-hex repository
-variables `XGC2_XRPC_REVISION` and `XGC2_ROBOTICS_INTERFACES_REVISION`; absent
-published dependencies fail the gate, with no fallback to a moving branch.
+including the installed SDK libraries. The workflow pins exact XRPC,
+state-machine and chassis-hold source revisions and uses the controlled Focal
+build image. HOLD is supplied by xgc2-chassis-hold, without a robotics-interfaces
+dependency.
 
 Installed-consumer build:
 
 ```sh
-cmake -S test -B /tmp/chassis-hold-test -DCMAKE_PREFIX_PATH=/path/to/installed/prefix
-cmake --build /tmp/chassis-hold-test --parallel 2
-ctest --test-dir /tmp/chassis-hold-test --output-on-failure
+cmake -S test -B build/chassis-hold-test -DCMAKE_PREFIX_PATH=/path/to/installed/prefix
+cmake --build build/chassis-hold-test --parallel 2
+ctest --test-dir build/chassis-hold-test --output-on-failure
 ```
 
-The new dependency baseline is C++20 (GCC/libstdc++ >=11), Boost >=1.70 and
-JsonCpp >=1.9.4. The current Bionic/Melodic and stock Focal/Noetic product
-images do not satisfy that baseline. No maintained Bionic XRPC package or
-vehicle-compatible toolchain/ABI has been validated by this source change.
-Dependency publication, immutable CI pins and distribution ABI validation are
-release gates; do not deploy the host's Noble-built SDK into those vehicles.
+The State and Server public APIs require C++17. Rpc integration and the SDK
+implementation require C++20. Controlled Focal builds use clang++-10 with the
+matching libstdc++ runtime. JSON-HTTP encoding belongs to XRPC; JsonCpp >=1.7.4
+is used only by the independent test peer. State-machine transitions may
+allocate in their bounded diagnostics; native gate/idle queries do not allocate.
+No maintained Bionic XRPC package or vehicle-compatible Bionic toolchain/ABI
+has been validated. Source and isolated Focal tests do not establish a vehicle
+installation or measured physical stop.
 The existing native CAN/serial protocol and user ROS topics remain their device
 and algorithm interfaces.
 
@@ -105,7 +108,7 @@ Optional isolated device-output fixture (both built device targets required):
 ```sh
 . /path/to/isolated-catkin/devel/setup.bash
 /usr/bin/python3 test/ros_device_output_test.py \
-  --devel /path/to/isolated-catkin/devel --helpers /tmp/chassis-hold-test
+  --devel /path/to/isolated-catkin/devel --helpers build/chassis-hold-test
 ```
 
 The fixture owns a random-port ROS master and private temporary ROS home/logs,

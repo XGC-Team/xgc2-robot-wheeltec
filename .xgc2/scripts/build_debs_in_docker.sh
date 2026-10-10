@@ -51,7 +51,7 @@ docker run "${docker_args[@]}" "$DOCKER_IMAGE" bash -lc '
       echo "deb [signed-by=/etc/apt/keyrings/xgc2-archive-keyring.gpg] $XGC2_APT_OVERLAY_URL $XGC2_APT_DISTRIBUTION main" > /etc/apt/sources.list.d/00-xgc2-release-train.list
     fi
     apt-get update
-    apt-get install -y --no-install-recommends ros-melodic-swarm-ros-bridge
+    apt-get install -y --no-install-recommends ros-melodic-swarm-ros-bridge libxgc2-chassis-hold-dev
 
     BUILD_ROOT="$(mktemp -d /workspace/work/wheeltec.XXXXXX)"
     WORKSPACE="$BUILD_ROOT/workspace"

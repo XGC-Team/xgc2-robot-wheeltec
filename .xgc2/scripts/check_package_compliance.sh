@@ -33,7 +33,7 @@ xmllint --noout \
 test ! -d onboard/ros1/communication/src/wheeltec_swarm_ros_bridge
 
 grep -q '^id: xgc2-wheeltec-onboard-ros1$' .xgc2/product.yml
-grep -q '^version: 0.1.0-10$' .xgc2/product.yml
+grep -q '^version: 0.1.0-11$' .xgc2/product.yml
 grep -q 'ros-melodic-xgc2-wheeltec-onboard-autostart' .xgc2/product.yml
 grep -q 'ros-melodic-swarm-ros-bridge (>= 1.1.0-12)' .xgc2/product.yml
 grep -q 'ros-melodic-rosbash' .xgc2/product.yml

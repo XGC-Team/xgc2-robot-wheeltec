@@ -11,9 +11,9 @@ find_package(catkin REQUIRED COMPONENTS
   tf
 )
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-find_package(XgcRoboticsInterfaces 0.2.0 EXACT CONFIG REQUIRED COMPONENTS ChassisHold)
+find_package(XgcChassisHold 0.1.0 CONFIG REQUIRED COMPONENTS Server)
 
 catkin_package(
   CATKIN_DEPENDS
@@ -39,7 +39,7 @@ find_package(Threads REQUIRED)
 target_link_libraries(wheeltec_robot_node
   ${catkin_LIBRARIES}
   Threads::Threads
-  XgcRoboticsInterfaces::ChassisHold
+  XgcChassisHold::Server
 )
 
 install(TARGETS wheeltec_robot_node

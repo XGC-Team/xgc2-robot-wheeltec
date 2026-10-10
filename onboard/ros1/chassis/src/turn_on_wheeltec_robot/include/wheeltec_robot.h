@@ -24,7 +24,7 @@
 #include <geometry_msgs/Vector3.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/Imu.h>
-#include <xgc2/chassis_hold/provider.hpp>
+#include <xgc2/chassis_hold/server.hpp>
 using namespace std;
 
 //Macro definition
@@ -147,7 +147,7 @@ class turn_on_robot
 		void Cmd_Vel_Callback(const geometry_msgs::Twist &twist_aux);
 		bool WriteMotion(const geometry_msgs::Twist &command);
 		static bool ApplyHoldZero(void *self, std::size_t robot) noexcept;
-		std::unique_ptr<xgc2::chassis_hold::Provider> hold_provider_;
+		std::unique_ptr<xgc2::chassis_hold::HoldServer> hold_provider_;
 
 		ros::Publisher odom_publisher, imu_publisher, voltage_publisher; //Initialize the topic publisher //初始化话题发布者
 		void Publish_Odom();      //Pub the speedometer topic //发布里程计话题
