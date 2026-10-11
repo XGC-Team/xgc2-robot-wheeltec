@@ -6,7 +6,10 @@
   <arg name="robot_frame_id" default="base_footprint" />
   <arg name="gyro_frame_id" default="gyro_link" />
   <arg name="robot_id" />
-  <arg name="hold_socket" />
+  <arg name="hold_port" default="19530" />
+  <arg name="hold_key_file" default="/etc/xgc2/chassis-hold.key" />
+  <arg name="hold_boot_held" default="false" />
+  <arg name="hold_required" default="true" />
 
   <node pkg="turn_on_wheeltec_robot"
         type="wheeltec_robot_node"
@@ -18,6 +21,9 @@
     <param name="robot_frame_id" value="$(arg robot_frame_id)" />
     <param name="gyro_frame_id" value="$(arg gyro_frame_id)" />
     <param name="hold_robot_id" value="$(arg robot_id)" />
-    <param name="hold_socket" value="$(arg hold_socket)" />
+    <param name="hold_port" value="$(arg hold_port)" />
+    <param name="hold_key_file" value="$(arg hold_key_file)" />
+    <param name="hold_boot_held" value="$(arg hold_boot_held)" />
+    <param name="hold_required" value="$(arg hold_required)" />
   </node>
 </launch>

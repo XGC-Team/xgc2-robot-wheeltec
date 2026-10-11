@@ -8,11 +8,14 @@ PREFIX="/opt/ros/$ROS_DISTRO"
 source "$PREFIX/setup.bash"
 
 for deb_package in \
+  libxgc2-chassis-hold1 \
+  libxgc2-xrpc-udp1 \
   "ros-$ROS_DISTRO-xgc2-wheeltec-driver" \
   "ros-$ROS_DISTRO-xgc2-wheeltec-onboard-autostart" \
   "ros-$ROS_DISTRO-xgc2-wheeltec-onboard"; do
   dpkg -s "$deb_package" >/dev/null
 done
+dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libxgc2-chassis-hold1)" ge 0.2.0
 dpkg -s "ros-$ROS_DISTRO-xgc2-wheeltec-swarm-ros-bridge" >/dev/null 2>&1 \
   && { echo "retired ros-$ROS_DISTRO-xgc2-wheeltec-swarm-ros-bridge must not install" >&2; exit 1; }
 
@@ -66,9 +69,9 @@ cat >"${bridge_stub}" <<'YAML'
 send_topics: []
 recv_topics: []
 YAML
-roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch robot_id:=launch-validation hold_socket:=/tmp/launch-validation.sock >/dev/null
+roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch robot_id:=launch-validation >/dev/null
 roslaunch --files wheeltec_onboard_autostart swarm.launch "config_file:=${bridge_stub}" >/dev/null
-roslaunch --files wheeltec_onboard_autostart wheeltec.launch "bridge_config_file:=${bridge_stub}" robot_id:=launch-validation hold_socket:=/tmp/launch-validation.sock >/dev/null
+roslaunch --files wheeltec_onboard_autostart wheeltec.launch "bridge_config_file:=${bridge_stub}" robot_id:=launch-validation >/dev/null
 rm -f -- "${bridge_stub}"
 
 echo "Installed Wheeltec ROS1 package checks passed"

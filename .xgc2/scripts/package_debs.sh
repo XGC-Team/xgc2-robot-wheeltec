@@ -181,7 +181,7 @@ build_driver_deb() {
   fi
 
   write_control "$package_root" "$deb_package" \
-    "libxgc2-chassis-hold0 (>= 0.1.0), udev, ros-$ROS_DISTRO-geometry-msgs, ros-$ROS_DISTRO-nav-msgs, ros-$ROS_DISTRO-roscpp, ros-$ROS_DISTRO-roslaunch, ros-$ROS_DISTRO-serial, ros-$ROS_DISTRO-sensor-msgs, ros-$ROS_DISTRO-std-msgs, ros-$ROS_DISTRO-tf" \
+    "libxgc2-chassis-hold1 (>= 0.2.0), libxgc2-xrpc-udp1, udev, ros-$ROS_DISTRO-geometry-msgs, ros-$ROS_DISTRO-nav-msgs, ros-$ROS_DISTRO-roscpp, ros-$ROS_DISTRO-roslaunch, ros-$ROS_DISTRO-serial, ros-$ROS_DISTRO-sensor-msgs, ros-$ROS_DISTRO-std-msgs, ros-$ROS_DISTRO-tf" \
     "XGC2 Wheeltec serial chassis driver"
   write_readme "$package_root" "$deb_package" "$ros_package"
 

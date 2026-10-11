@@ -24,7 +24,9 @@
 #include <geometry_msgs/Vector3.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <sensor_msgs/Imu.h>
-#include <xgc2/chassis_hold/server.hpp>
+#include <memory>
+#include <xgc2/chassis_hold/chassis_hold.hpp>
+#include <xgc2/chassis_hold/udp_endpoint.hpp>
 using namespace std;
 
 //Macro definition
@@ -129,7 +131,8 @@ typedef struct _RECEIVE_DATA_
 
 //The robot chassis class uses constructors to initialize data, publish topics, etc
 //机器人底盘类，使用构造函数初始化数据和发布话题等
-class turn_on_robot
+class turn_on_robot : private xgc2::chassis_hold::ZeroSink,
+                      private xgc2::chassis_hold::FeedbackSource
 {
 	public:
 		turn_on_robot();  //Constructor //构造函数
@@ -144,10 +147,16 @@ class turn_on_robot
 		ros::Subscriber Cmd_Vel_Sub; //Initialize the topic subscriber //初始化话题订阅者
 		//The speed topic subscribes to the callback function
 		//速度话题订阅回调函数
-		void Cmd_Vel_Callback(const geometry_msgs::Twist &twist_aux);
+		void Cmd_Vel_Callback(const ros::MessageEvent<geometry_msgs::Twist const> &event);
 		bool WriteMotion(const geometry_msgs::Twist &command);
-		static bool ApplyHoldZero(void *self, std::size_t robot) noexcept;
-		std::unique_ptr<xgc2::chassis_hold::HoldServer> hold_provider_;
+		bool write_zero(const std::string &robot_id, std::string &error) override;
+		bool latest(const std::string &robot_id, xgc2::chassis_hold::Feedback &sample) override;
+		std::string hold_robot_id_;
+		xgc2::chassis_hold::Feedback feedback_;
+		bool feedback_valid_ = false;
+		bool serial_write_failed_ = false;
+		std::unique_ptr<xgc2::chassis_hold::ChassisHold> hold_;
+		std::unique_ptr<xgc2::chassis_hold::UdpEndpoint> hold_endpoint_;
 
 		ros::Publisher odom_publisher, imu_publisher, voltage_publisher; //Initialize the topic publisher //初始化话题发布者
 		void Publish_Odom();      //Pub the speedometer topic //发布里程计话题

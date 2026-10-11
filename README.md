@@ -68,6 +68,13 @@ sudo systemctl enable --now xgc2-wheeltec-swarm-ros-bridge.service
 
 Driver postinst copies packaged udev rules when those filenames are absent.
 
+The chassis driver serves `xgc2.chassis.hold` over `udp.v1` on port 19530.
+Set the vehicle's `XGC2_CHASSIS_ROBOT_ID` in `onboard.env` and provision a
+readable 0600 key file before enabling the chassis service. HOLD is required
+by default; an unusable key ends the driver process. See the
+[driver HOLD contract](docs/chassis-hold-contract.md) for parameters, key
+ownership and the receipt-time command gate.
+
 `docs/` is present-tense operator notes. Field notes live in `memory/field/wheeltec/`
 (`xgc2-dev-memory`). Vendor navigation/camera/URDF leftovers are in
 `vendor/legacy/` and are not packaged.

@@ -1,21 +1,19 @@
-cmake_minimum_required(VERSION 3.16)
-project(ChassisHoldNativeTests LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.10)
+project(WheeltecHoldTests LANGUAGES CXX)
 include(CTest)
-find_package(XgcChassisHold 0.1.0 CONFIG REQUIRED COMPONENTS Server Rpc)
-find_package(Threads REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(HoldTestJsonCpp REQUIRED IMPORTED_TARGET jsoncpp>=1.7.4)
-add_executable(chassis_hold_native_test chassis_hold_native_test.cpp)
-target_compile_features(chassis_hold_native_test PRIVATE cxx_std_20)
-target_compile_options(chassis_hold_native_test PRIVATE -Wall -Wextra -Werror -UNDEBUG)
-target_link_libraries(chassis_hold_native_test PRIVATE XgcChassisHold::Server XgcChassisHold::Rpc PkgConfig::HoldTestJsonCpp Threads::Threads)
-add_test(NAME chassis_hold_native COMMAND chassis_hold_native_test)
-set_tests_properties(chassis_hold_native PROPERTIES TIMEOUT 20)
+find_package(PythonInterp 3 REQUIRED)
 
-# Optional ROS/device-output fixture helpers; not part of installed products.
-add_executable(chassis_hold_peer chassis_hold_peer.cpp)
-target_link_libraries(chassis_hold_peer PRIVATE XgcChassisHold::Server XgcChassisHold::Rpc PkgConfig::HoldTestJsonCpp Threads::Threads)
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  add_library(pty_modem_shim SHARED pty_modem_shim.cpp)
-  target_link_libraries(pty_modem_shim PRIVATE ${CMAKE_DL_LIBS})
+set(WHEELTEC_DEVEL_PREFIX "" CACHE PATH "Catkin devel space containing the Wheeltec driver")
+if(NOT WHEELTEC_DEVEL_PREFIX)
+  message(FATAL_ERROR "WHEELTEC_DEVEL_PREFIX must name the built catkin devel space")
 endif()
+
+add_library(pty_modem_shim SHARED pty_modem_shim.cpp)
+target_compile_features(pty_modem_shim PRIVATE cxx_std_17)
+target_compile_options(pty_modem_shim PRIVATE -Wall -Wextra -Werror)
+target_link_libraries(pty_modem_shim PRIVATE ${CMAKE_DL_LIBS})
+
+add_test(NAME wheeltec_hold COMMAND ${PYTHON_EXECUTABLE}
+  ${CMAKE_CURRENT_SOURCE_DIR}/ros_device_output_test.py
+  --devel ${WHEELTEC_DEVEL_PREFIX} --helpers ${CMAKE_CURRENT_BINARY_DIR})
+set_tests_properties(wheeltec_hold PROPERTIES TIMEOUT 60)

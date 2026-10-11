@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Isolated Noetic fixture: simulated Scout + actual Wheeltec serial PTY output.
-Run after sourcing the isolated catkin workspace. Never attaches a live master.
-The PTY-only modem shim accepts DTR/RTS ioctls; this isn't a board ACK test.
+"""Exercise the Wheeltec udp.v1 HOLD host on a PTY under a private ROS master.
+
+The fixture-only modem shim accepts DTR/RTS and can pause one serial write;
+serial bytes still pass through the actual driver and vendor serial library.
 """
 import argparse
+import base64
 import collections
 import json
 import os
 from pathlib import Path
 import pty
+import secrets
 import select
 import signal
 import socket
@@ -17,125 +20,130 @@ import subprocess
 import tempfile
 import threading
 import time
+import tty
 import xmlrpc.client
 
 
-def wait_for(check, label, seconds=4):
+def wait_for(check, label, seconds=5, interval=.02):
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
-        if check():
-            return
-        time.sleep(.01)
+        result = check()
+        if result:
+            return result
+        time.sleep(interval)
     raise AssertionError(label)
 
 
 def stop(process):
-    if process and process.poll() is None:
+    if process.poll() is None:
         os.killpg(process.pid, signal.SIGINT)
         try:
-            process.wait(4)
+            process.wait(5)
         except subprocess.TimeoutExpired:
             os.killpg(process.pid, signal.SIGKILL)
             process.wait()
-            raise AssertionError('native process did not quiesce on SIGINT')
+            raise AssertionError('process did not quiesce on SIGINT')
+    else:
+        process.wait()
+
+
+def free_port(kind):
+    for _ in range(100):
+        port = 20000 + secrets.randbelow(20001)
+        with socket.socket(socket.AF_INET, kind) as reservation:
+            try:
+                reservation.bind(('127.0.0.1', port))
+                return port
+            except OSError:
+                pass
+    raise AssertionError('no private port available in 20000..40000')
 
 
 def main():
-    args = argparse.ArgumentParser()
-    args.add_argument('--devel', required=True, type=Path)
-    args.add_argument('--helpers', required=True, type=Path)
-    args = args.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--devel', required=True, type=Path)
+    parser.add_argument('--helpers', required=True, type=Path)
+    args = parser.parse_args()
     processes = []
     serial_stop = threading.Event()
     serial_thread = None
     master_fd = slave_fd = None
-    with tempfile.TemporaryDirectory(prefix='chassis-ros-native-') as temporary:
+    with tempfile.TemporaryDirectory(prefix='wheeltec-hold-') as temporary:
         directory = Path(temporary)
-        with socket.socket() as reservation:
-            reservation.bind(('127.0.0.1', 0))
-            port = reservation.getsockname()[1]
+        port = free_port(socket.SOCK_STREAM)
+        hold_port = free_port(socket.SOCK_DGRAM)
         env = os.environ.copy()
         env.update(ROS_MASTER_URI=f'http://127.0.0.1:{port}', ROS_HOSTNAME='127.0.0.1',
-                   ROS_HOME=str(directory/'ros-home'), ROS_LOG_DIR=str(directory/'ros-log'))
-        os.environ.update({k: env[k] for k in ('ROS_MASTER_URI', 'ROS_HOSTNAME', 'ROS_HOME', 'ROS_LOG_DIR')})
+                   ROS_IP='127.0.0.1', ROS_HOME=str(directory/'ros-home'),
+                   ROS_LOG_DIR=str(directory/'ros-log'))
+        os.environ.update({key: env[key] for key in
+                           ('ROS_MASTER_URI', 'ROS_HOSTNAME', 'ROS_IP', 'ROS_HOME', 'ROS_LOG_DIR')})
+        barrier = directory/'write-barrier'
+        key_file = directory/'hold.key'
+        wrong_key = directory/'wrong.key'
+        for path in (key_file, wrong_key):
+            path.write_text('1 ' + base64.b64encode(secrets.token_bytes(32)).decode('ascii') + '\n')
+            path.chmod(0o600)
         log = (directory/'process.log').open('w+')
-        def launch(command, extra=None):
+
+        def launch(command, extra=None, capture=False):
             configuration = env.copy()
             configuration.update(extra or {})
-            process = subprocess.Popen(command, env=configuration, stdout=log,
-                                       stderr=subprocess.STDOUT, start_new_session=True)
+            process = subprocess.Popen(command, env=configuration,
+                                       stdout=subprocess.PIPE if capture else log,
+                                       stderr=subprocess.STDOUT, text=True, start_new_session=True)
             processes.append(process)
             return process
+
+        def cli_command(*words, key=key_file, timeout=2000):
+            return ['xgc2-hold', '--endpoint', f'127.0.0.1:{hold_port}',
+                    '--key-file', str(key), '--timeout-ms', str(timeout), *words]
+
+        def cli(*words, key=key_file, timeout=2000, code=0):
+            result = subprocess.run(cli_command(*words, key=key, timeout=timeout),
+                                    env=env, capture_output=True, text=True, timeout=6)
+            assert result.returncode == code, f'CLI {words}: {result.stdout} {result.stderr}'
+            return json.loads(result.stdout)
+
+        def state():
+            return cli('state', '--robot', 'wheel-fixture')['reply']['robots'][0]
+
         try:
             core = launch(['roscore', '-p', str(port)])
+
             def master_ready():
-                if core.poll() is not None:
-                    raise AssertionError('isolated roscore startup failed')
+                assert core.poll() is None, 'private roscore startup failed'
                 try:
                     return xmlrpc.client.ServerProxy(env['ROS_MASTER_URI']).getPid('/fixture')[0] == 1
                 except (ConnectionError, OSError):
                     return False
-            wait_for(master_ready, 'isolated roscore timeout')
+
+            wait_for(master_ready, 'private roscore timeout')
             import rospy
             from geometry_msgs.msg import Twist
-            from scout_msgs.msg import ScoutStatus
-            rospy.init_node('device_output_fixture', disable_signals=True)
-            # Native management must continue while the private ROS clock is paused.
-            rospy.set_param('/use_sim_time', True)
-            scout_values = collections.deque(maxlen=2000)
-            rospy.Subscriber('/fixture/scout_status', ScoutStatus,
-                             lambda msg: scout_values.append((time.monotonic(), msg.linear_velocity, msg.angular_velocity)))
-            scout_pub = rospy.Publisher('/fixture/scout_cmd', Twist, queue_size=1)
-            wheel_pub = rospy.Publisher('/fixture/wheel_cmd', Twist, queue_size=1)
-            twist = Twist()
-            twist.linear.x, twist.angular.z = .2, .3
-            def publish():
-                while not serial_stop.is_set():
-                    scout_pub.publish(twist)
-                    wheel_pub.publish(twist)
-                    time.sleep(.01)
-            publisher = threading.Thread(target=publish)
-            publisher.start()
-            def call(path, revision=None, robot=None, held=None):
-                command = [str(args.helpers/'chassis_hold_peer'), str(path)]
-                command += ['GET'] if revision is None else ['POST', str(revision), robot, str(held).lower()]
-                result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=2)
-                assert result.returncode == 0, f"SDK peer failed: {result.stderr}"
-                status, body = result.stdout.split('\n', 1)
-                return int(status), json.loads(body)
-            scout_socket = directory/'scout.sock'
-            scout = launch([str(args.devel/'lib/scout_base/scout_base_node'),
-                            '_simulated_robot:=true', '_hold_robot_id:=scout-fixture',
-                            f'_hold_socket:={scout_socket}', '/cmd_vel:=/fixture/scout_cmd',
-                            '/scout_status:=/fixture/scout_status'])
-            wait_for(lambda: scout_socket.exists(), 'Scout HTTP startup timeout')
-            wait_for(lambda: any(abs(x) > .1 for _, x, _ in scout_values), 'Scout native cmd did not move')
-            status, receipt = call(scout_socket, 0, 'scout-fixture', True)
-            assert status == 200 and receipt['stage'] == 'applied' and receipt['revision'] == 1
-            assert receipt['changes'][0]['zero_applied'] and not receipt['physical_stop_confirmed']
-            stamp = time.monotonic()
-            wait_for(lambda: any(t > stamp and x == 0 and yaw == 0 for t, x, yaw in scout_values), 'Scout hold did not update actual sim command state')
-            time.sleep(.10)
-            assert all(x == 0 and yaw == 0 for t, x, yaw in scout_values if t > stamp+.03), 'Scout held callback emitted nonzero'
-            assert call(scout_socket, 0, 'scout-fixture', False)[0] == 409
-            assert call(scout_socket, 1, 'scout-fixture', False)[0] == 200
-            stamp = time.monotonic()
-            wait_for(lambda: any(t > stamp and abs(x) > .1 for t, x, _ in scout_values), 'Scout release rejected fresh ROS command')
-            stop(scout)
-            assert scout.returncode == 0 and not scout_socket.exists(), 'Scout shutdown leaked endpoint or aborted'
-
+            rospy.init_node('wheeltec_hold_fixture', disable_signals=True)
+            wheel_pub = rospy.Publisher('/fixture/cmd_vel', Twist, queue_size=100)
             master_fd, slave_fd = pty.openpty()
             slave = os.ttyname(slave_fd)
             os.set_blocking(master_fd, False)
-            frames = collections.deque(maxlen=2000)
-            # Real device telemetry encoding, all zero motion. XOR BCC then tail.
-            telemetry = bytearray(24)
-            telemetry[0] = 0x7b
-            telemetry[22] = 0x7b
-            telemetry[23] = 0x7d
+            tty.setraw(slave_fd)
+            frames = collections.deque(maxlen=20000)
+            feedback_moving = threading.Event()
+            feedback_moving.set()
+            peer_errors = []
+
             def serial_peer():
                 buffer = bytearray()
                 while not serial_stop.is_set():
+                    # MCU velocity frame: planar linear speed and yaw, XOR BCC, tail.
+                    telemetry = bytearray(24)
+                    telemetry[0], telemetry[23] = 0x7b, 0x7d
+                    if feedback_moving.is_set():
+                        telemetry[4:8] = struct.pack('>hh', 200, 300)
+                    checksum = 0
+                    for byte in telemetry[:22]:
+                        checksum ^= byte
+                    telemetry[22] = checksum
                     try:
                         os.write(master_fd, telemetry)
                         if select.select([master_fd], [], [], .01)[0]:
@@ -146,60 +154,170 @@ def main():
                                 continue
                             frame = bytes(buffer[:11])
                             del buffer[:11]
-                            if frame[-1] != 0x7d:
-                                continue
                             checksum = 0
                             for byte in frame[:9]:
                                 checksum ^= byte
-                            if checksum == frame[9]:
-                                frames.append((time.monotonic(), struct.unpack('>hhh', frame[3:9])))
-                    except (OSError, BlockingIOError):
-                        time.sleep(.01)
-            # Disable PTY echo so board telemetry cannot masquerade as output.
-            import tty
-            tty.setraw(slave_fd)
+                            assert frame[-1] == 0x7d and checksum == frame[9], 'invalid serial output frame'
+                            frames.append((time.monotonic(), struct.unpack('>hhh', frame[3:9])))
+                    except BlockingIOError:
+                        serial_stop.wait(.01)
+                    except Exception as error:
+                        peer_errors.append(error)
+                        return
+                    serial_stop.wait(.01)
+
             serial_thread = threading.Thread(target=serial_peer)
             serial_thread.start()
-            wheel_socket = directory/'wheel.sock'
-            wheel = launch([str(args.devel/'lib/turn_on_wheeltec_robot/wheeltec_robot_node'),
-                            f'_usart_port_name:={slave}', '_hold_robot_id:=wheel-fixture',
-                            f'_hold_socket:={wheel_socket}', 'cmd_vel:=/fixture/wheel_cmd'],
-                           {'LD_PRELOAD': str(args.helpers/'libpty_modem_shim.so')})
-            wait_for(lambda: wheel_socket.exists(), 'Wheeltec HTTP startup timeout')
-            wait_for(lambda: any(any(v != 0 for v in velocity) for _, velocity in frames), 'Wheeltec actual serial cmd did not move')
-            status, receipt = call(wheel_socket, 0, 'wheel-fixture', True)
-            assert status == 200 and receipt['stage'] == 'applied' and receipt['revision'] == 1
-            assert receipt['changes'][0]['zero_applied'] and not receipt['physical_stop_confirmed']
+
+            def driver(key=key_file, *options):
+                return launch([str(args.devel/'lib/turn_on_wheeltec_robot/wheeltec_robot_node'),
+                               f'_usart_port_name:={slave}', '_hold_robot_id:=wheel-fixture',
+                               f'_hold_port:={hold_port}', f'_hold_key_file:={key}',
+                               'cmd_vel:=/fixture/cmd_vel', *options],
+                              {'LD_PRELOAD': str(args.helpers/'libpty_modem_shim.so'),
+                               'WHEELTEC_TEST_WRITE_BARRIER': str(barrier)})
+
+            def connected(process):
+                assert process.poll() is None, 'driver exited unexpectedly'
+                return wheel_pub.get_num_connections() == 1
+
+            def publish(value):
+                twist = Twist()
+                twist.linear.x, twist.linear.y, twist.angular.z = value, value/2, value/4
+                wheel_pub.publish(twist)
+
+            def saw(value, since):
+                return any(stamp >= since and velocity[0] == round(value*1000)
+                           for stamp, velocity in list(frames))
+
+            wheel = driver()
+            wait_for(lambda: connected(wheel), 'driver ROS startup timeout')
+            described = cli('describe')['reply']
+            instance = described['instance']
+            assert described['robots'] == ['wheel-fixture'] and described['feedback']['wheel-fixture']
+            initial = state()
+            assert not initial['held'] and initial['revision'] == 0 and initial['stage'] == 'released'
             stamp = time.monotonic()
-            wait_for(lambda: any(t > stamp and velocity == (0, 0, 0) for t, velocity in frames), 'Wheeltec hold omitted native zero frame')
+            publish(.2)
+            wait_for(lambda: saw(.2, stamp), 'released command did not reach serial')
+
+            engaged = cli('engage', '--robot', 'wheel-fixture')['reply']['robots'][0]
+            assert engaged['outcome'] == 'engaged' and engaged['revision'] == 1
+            wait_for(lambda: state()['stage'] == 'zero_written', 'zero_written not reported', interval=.08)
+            stamp = time.monotonic()
+            for _ in range(15):
+                publish(.4)
+                time.sleep(.01)
+            held_frames = [(at, velocity) for at, velocity in list(frames) if at > stamp]
+            assert len(held_frames) >= 10, 'zero output was not re-asserted across control ticks'
+            assert all(velocity == (0, 0, 0) for _, velocity in held_frames), 'held command reached serial'
+            assert max(b[0]-a[0] for a, b in zip(held_frames, held_frames[1:])) < .08, 'zero ticks stalled'
+            time.sleep(.35)
+            assert state()['stage'] == 'zero_written', 'moving MCU feedback reported stopped'
+            feedback_moving.clear()
+
+            def stopped_state():
+                current = state()
+                return current if current['stage'] == 'stopped' else None
+
+            stopped = wait_for(stopped_state, 'resting MCU feedback did not report stopped', interval=.08)
+            assert stopped['zero_written_at_ms'] <= stopped['stopped_at_ms']
+
+            stale = cli('release', '--robot', 'wheel-fixture=0', '--instance', instance, code=1)
+            assert stale['reply']['robots'][0]['outcome'] == 'conflict' and state()['held']
+            stale_instance = ('1' if instance[0] != '1' else '2') + instance[1:]
+            rejected = cli('release', '--robot', 'wheel-fixture=1', '--instance', stale_instance, code=2)
+            assert rejected['status'] == 'conflict' and state()['held']
+            unauthenticated = cli('engage', '--all', key=wrong_key, timeout=250, code=2)
+            assert unauthenticated['disposition'] == 'outcome_unknown' and 'reply' not in unauthenticated
+            released = cli('release', '--robot', 'wheel-fixture=1', '--instance', instance)['reply']['robots'][0]
+            assert released['outcome'] == 'released' and released['revision'] == 2
+            stamp = time.monotonic()
             time.sleep(.10)
-            assert all(velocity == (0, 0, 0) for t, velocity in frames if t > stamp+.03), 'Wheeltec held callback emitted nonzero frame'
-            assert call(wheel_socket, 0, 'wheel-fixture', False)[0] == 409
-            assert call(wheel_socket, 1, 'wheel-fixture', False)[0] == 200
+            assert not saw(.4, stamp), 'release replayed a held command'
+            publish(.3)
+            wait_for(lambda: saw(.3, stamp), 'release did not accept a fresh command')
+
+            # Block a callback's write after spinOnce copied its queue. ROS IO
+            # receives the next command while held; tick applies release before
+            # the next spinOnce dispatches it, so only the receipt fence drops it.
+            barrier.touch()
+            publish(.5)
+            wait_for(lambda: Path(str(barrier)+'.blocked').exists(), 'native write did not block')
+            engaged = cli('engage', '--all')['reply']['robots'][0]
+            assert engaged['held'] and engaged['stage'] == 'gated' and engaged['revision'] == 3
             stamp = time.monotonic()
-            wait_for(lambda: any(t > stamp and any(v != 0 for v in velocity) for t, velocity in frames), 'Wheeltec release rejected fresh ROS command')
+            publish(.6)
+            time.sleep(.10)
+            pending = launch(cli_command('release', '--robot', 'wheel-fixture=3', '--instance', instance), capture=True)
+            time.sleep(.10)
+            assert pending.poll() is None, 'release did not wait for the native tick'
+            barrier.unlink()
+            output, _ = pending.communicate(timeout=6)
+            assert pending.returncode == 0 and json.loads(output)['reply']['robots'][0]['outcome'] == 'released'
+            time.sleep(.15)
+            assert not saw(.6, stamp), 'a pre-release receipt was dispatched after release'
+            publish(.7)
+            wait_for(lambda: saw(.7, stamp), 'fresh command rejected after queued release')
             stop(wheel)
-            assert wheel.returncode == 0 and not wheel_socket.exists(), 'Wheeltec shutdown leaked endpoint or failed'
-            print('PASS actual Scout simulated command state and Wheeltec serial output arbitration, CAS, release and SIGINT')
+            assert wheel.returncode == 0, 'normal driver shutdown failed'
+            wait_for(lambda: wheel_pub.get_num_connections() == 0, 'driver subscriber did not close')
+
+            boot = driver(key_file, '_hold_boot_held:=true')
+            wait_for(lambda: connected(boot), 'boot-held driver startup timeout')
+            boot_state = state()
+            assert boot_state['held'] and boot_state['revision'] == 1
+            stamp = time.monotonic()
+            publish(.8)
+            time.sleep(.12)
+            assert not saw(.8, stamp), 'boot-held driver accepted motion'
+            stop(boot)
+            assert boot.returncode == 0
+            wait_for(lambda: wheel_pub.get_num_connections() == 0, 'boot-held subscriber did not close')
+
+            missing_key = directory/'missing.key'
+            required = driver(missing_key)
+            required.wait(timeout=6)
+            assert required.returncode != 0, 'hold_required accepted a missing key'
+            optional = driver(missing_key, '_hold_required:=false', '_hold_boot_held:=true')
+            wait_for(lambda: connected(optional), 'optional HOLD driver failed to start')
+            stamp = time.monotonic()
+            publish(.9)
+            wait_for(lambda: saw(.9, stamp), 'optional HOLD without a key did not pass commands')
+            absent = cli('describe', timeout=250, code=2)
+            assert 'reply' not in absent, 'optional HOLD exposed a service without a key'
+            stop(optional)
+            assert optional.returncode == 0
+            assert not peer_errors, f'PTY peer failed: {peer_errors}'
+            log.flush()
+            log.seek(0)
+            assert log.read().count('HOLD unavailable:') == 1, 'optional key error was not logged exactly once'
+            print(f'PASS Wheeltec HOLD: receipt fence, zero ticks, MCU feedback, CAS, keys, boot and shutdown '
+                  f'(master {port}, UDP {hold_port}, ROS_HOME {env["ROS_HOME"]})')
         except Exception:
             log.flush()
             log.seek(0)
             print(log.read()[-8000:])
             raise
         finally:
+            if barrier.exists():
+                barrier.unlink()
+            cleanup_errors = []
+            for process in reversed(processes):
+                try:
+                    stop(process)
+                except Exception as error:
+                    cleanup_errors.append(error)
             serial_stop.set()
             if serial_thread:
                 serial_thread.join()
-            if 'publisher' in locals():
-                publisher.join()
             if 'rospy' in locals():
                 rospy.signal_shutdown('fixture complete')
-            for process in reversed(processes):
-                stop(process)
             if master_fd is not None:
                 os.close(master_fd)
                 os.close(slave_fd)
             log.close()
+            assert not cleanup_errors, f'process cleanup failed: {cleanup_errors}'
 
 
 if __name__ == '__main__':

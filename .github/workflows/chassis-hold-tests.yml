@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 jobs:
-  native-http:
+  driver-udp:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     strategy:
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: XGC-Team/xgc2-xrpc
-          ref: f8a9258f7d3c395ccdef27405cccadceb794884c
+          ref: d33afa88c42655f3c6ecbe26ce701ea392dbd8fc
           path: _dependencies/xrpc
       - uses: actions/checkout@v4
         with:
@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: XGC-Team/xgc2-chassis-hold
-          ref: 35ce45b2996824a49c32328342a9c231215907e8
+          ref: fcfe8f441ad257b049c27dfc0ea4351bae6733f0
           path: _dependencies/chassis-hold
       - name: Exercise installed HOLD against pinned SDKs
         env:
@@ -46,19 +46,33 @@ jobs:
               prefix="$work/prefix"
               flags=()
               if [[ "$VARIANT" == sanitized ]]; then
-                flags=(-DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
-                       -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined"
-                       -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined")
+                flags=("-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer"
+                       "-DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=address,undefined"
+                       "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined")
               fi
               for component in state-machine xrpc chassis-hold; do
                 cmake -S "/repo/_dependencies/$component" -B "$work/$component" \
                   -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=OFF \
+                  -DXGC2_XRPC_COMPONENTS=udp -DXGC2_CHASSIS_HOLD_BUILD_HTTP=OFF \
                   -DCMAKE_PREFIX_PATH="$prefix" -DCMAKE_INSTALL_PREFIX="$prefix" "${flags[@]}"
                 cmake --build "$work/$component" --parallel 2
                 cmake --install "$work/$component"
               done
+              set +u
+              # shellcheck disable=SC1091
+              source /opt/ros/noetic/setup.bash
+              set -u
+              export CMAKE_PREFIX_PATH="$prefix:$CMAKE_PREFIX_PATH"
+              export LD_LIBRARY_PATH="$prefix/lib:${LD_LIBRARY_PATH:-}"
+              export PATH="$prefix/bin:$PATH"
+              mkdir -p "$work/catkin/src"
+              ln -s /repo/onboard/ros1/chassis/src/turn_on_wheeltec_robot "$work/catkin/src/turn_on_wheeltec_robot"
+              # Sanitize the installed SDKs and fixture. The existing vendor IMU
+              # routine has an unrelated bounds error; only pass linker flags to the driver.
+              catkin_make -C "$work/catkin" -j2 -DCATKIN_ENABLE_TESTING=OFF \
+                -DCMAKE_BUILD_TYPE=Debug "${flags[@]:1}"
               cmake -S /repo/test -B "$work/consumer" -DCMAKE_PREFIX_PATH="$prefix" \
-                -DCMAKE_BUILD_TYPE=Debug "${flags[@]}"
+                -DWHEELTEC_DEVEL_PREFIX="$work/catkin/devel" -DCMAKE_BUILD_TYPE=Debug "${flags[@]}"
               cmake --build "$work/consumer" --parallel 2
               cd "$work/consumer"
               ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 \

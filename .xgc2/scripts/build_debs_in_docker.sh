@@ -53,6 +53,8 @@ docker run "${docker_args[@]}" "$DOCKER_IMAGE" bash -lc '
     apt-get update
     apt-get install -y --no-install-recommends ros-melodic-swarm-ros-bridge libxgc2-chassis-hold-dev
 
+    dpkg --compare-versions "$(dpkg-query --show --showformat="\${Version}" libxgc2-chassis-hold-dev)" ge 0.2.0
+
     BUILD_ROOT="$(mktemp -d /workspace/work/wheeltec.XXXXXX)"
     WORKSPACE="$BUILD_ROOT/workspace"
     mkdir -p "$WORKSPACE/src"
@@ -68,7 +70,7 @@ docker run "${docker_args[@]}" "$DOCKER_IMAGE" bash -lc '
     set +u
     source /opt/ros/melodic/setup.bash
     set -u
-    DESTDIR="$WORKSPACE/install-root" catkin_make install -DCMAKE_INSTALL_PREFIX=/opt/ros/melodic -DCATKIN_ENABLE_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+    DESTDIR="$WORKSPACE/install-root" catkin_make install -j2 -DCMAKE_INSTALL_PREFIX=/opt/ros/melodic -DCATKIN_ENABLE_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
 
     set +u
     source devel/setup.bash
@@ -80,9 +82,9 @@ docker run "${docker_args[@]}" "$DOCKER_IMAGE" bash -lc '
 send_topics: []
 recv_topics: []
 YAML
-    roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch robot_id:=launch-validation hold_socket:=/tmp/launch-validation.sock >/dev/null
+    roslaunch --files turn_on_wheeltec_robot wheeltec_robot.launch robot_id:=launch-validation >/dev/null
     roslaunch --files wheeltec_onboard_autostart swarm.launch "config_file:=${bridge_stub}" >/dev/null
-    roslaunch --files wheeltec_onboard_autostart wheeltec.launch "bridge_config_file:=${bridge_stub}" robot_id:=launch-validation hold_socket:=/tmp/launch-validation.sock >/dev/null
+    roslaunch --files wheeltec_onboard_autostart wheeltec.launch "bridge_config_file:=${bridge_stub}" robot_id:=launch-validation >/dev/null
     rm -f -- "${bridge_stub}"
 
     /workspace/repo/.xgc2/scripts/package_debs.sh --install-root "$WORKSPACE/install-root" --output-dir /workspace/out

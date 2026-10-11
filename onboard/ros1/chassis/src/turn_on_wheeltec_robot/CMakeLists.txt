@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.10)
 project(turn_on_wheeltec_robot)
 
 find_package(catkin REQUIRED COMPONENTS
@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-find_package(XgcChassisHold 0.1.0 CONFIG REQUIRED COMPONENTS Server)
+find_package(XgcChassisHold 0.2.0 CONFIG REQUIRED COMPONENTS core udp)
 
 catkin_package(
   CATKIN_DEPENDS
@@ -39,7 +39,7 @@ find_package(Threads REQUIRED)
 target_link_libraries(wheeltec_robot_node
   ${catkin_LIBRARIES}
   Threads::Threads
-  XgcChassisHold::Server
+  XgcChassisHold::udp
 )
 
 install(TARGETS wheeltec_robot_node

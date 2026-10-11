@@ -17,6 +17,9 @@ WAIT="${ROS_PREFIX}/lib/wheeltec_onboard_autostart/wait-device"
 "${WAIT}" /dev/wheeltec_controller --timeout "${CONTROLLER_WAIT_TIMEOUT:-60}"
 
 : "${XGC2_CHASSIS_ROBOT_ID:?site must supply its exact robot id}"
-: "${XGC2_CHASSIS_HOLD_SOCKET:?process owner must grant a private runtime endpoint}"
 exec roslaunch --wait wheeltec_onboard_autostart chassis.launch \
-  robot_id:="${XGC2_CHASSIS_ROBOT_ID}" hold_socket:="${XGC2_CHASSIS_HOLD_SOCKET}"
+  robot_id:="${XGC2_CHASSIS_ROBOT_ID}" \
+  hold_port:="${XGC2_CHASSIS_HOLD_PORT:-19530}" \
+  hold_key_file:="${XGC2_CHASSIS_HOLD_KEY_FILE:-/etc/xgc2/chassis-hold.key}" \
+  hold_boot_held:="${XGC2_CHASSIS_HOLD_BOOT_HELD:-false}" \
+  hold_required:="${XGC2_CHASSIS_HOLD_REQUIRED:-true}"

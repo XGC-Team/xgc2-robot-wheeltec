@@ -1,7 +1,6 @@
 #include "wheeltec_robot.h"
 #include "Quaternion_Solution.h"
 #include <stdexcept>
-extern char **environ;
 
 sensor_msgs::Imu Mpu6050;//Instantiate an IMU object //实例化IMU对象 
 
@@ -53,17 +52,23 @@ Date: January 28, 2021
 Function: The speed topic subscription Callback function, according to the subscribed instructions through the serial port command control of the lower computer
 功能: 速度话题订阅回调函数Callback，根据订阅的指令通过串口发指令控制下位机
 ***************************************/
-bool turn_on_robot::ApplyHoldZero(void *self, std::size_t robot) noexcept
+bool turn_on_robot::write_zero(const std::string &, std::string &error)
 {
-  if (robot != 0) return false;
-  try { return static_cast<turn_on_robot *>(self)->WriteMotion(geometry_msgs::Twist{}); }
-  catch (...) { return false; }
+  if (WriteMotion(geometry_msgs::Twist{})) return true;
+  error = "serial zero write failed";
+  return false;
 }
 
-void turn_on_robot::Cmd_Vel_Callback(const geometry_msgs::Twist &twist_aux)
+bool turn_on_robot::latest(const std::string &, xgc2::chassis_hold::Feedback &sample)
 {
-  const bool held = !hold_provider_ || !hold_provider_->healthy() || hold_provider_->held();
-  (void)WriteMotion(held ? geometry_msgs::Twist{} : twist_aux);
+  sample = feedback_;
+  return feedback_valid_;
+}
+
+void turn_on_robot::Cmd_Vel_Callback(const ros::MessageEvent<geometry_msgs::Twist const> &event)
+{
+  if (hold_ && !hold_->admit(hold_robot_id_, event.getReceiptTime().toNSec())) return;
+  (void)WriteMotion(*event.getMessage());
 }
 
 bool turn_on_robot::WriteMotion(const geometry_msgs::Twist &twist_aux)
@@ -99,10 +104,14 @@ bool turn_on_robot::WriteMotion(const geometry_msgs::Twist &twist_aux)
   Send_Data.tx[10]=FRAME_TAIL; //frame tail 0x7D //帧尾0X7D
   try
   {
-    return Stm32_Serial.write(Send_Data.tx,sizeof (Send_Data.tx)) == sizeof(Send_Data.tx);
+    if (Stm32_Serial.write(Send_Data.tx,sizeof (Send_Data.tx)) == sizeof(Send_Data.tx))
+      return true;
+    serial_write_failed_ = true;
+    return false;
   }
   catch (const std::exception &)
   {
+    serial_write_failed_ = true;
     ROS_ERROR_STREAM("Unable to send data through serial port"); //If sending data fails, an error message is printed //如果发送数据失败，打印错误信息
     return false;
   }
@@ -426,6 +435,9 @@ bool turn_on_robot::Get_Sensor_Data_New()
         transition_16 |=  Receive_Data.rx[21];  
         Power_voltage = transition_16/1000+(transition_16 % 1000)*0.001; //Unit conversion millivolt(mv)->volt(v) //单位转换毫伏(mv)->伏(v)
           
+        feedback_ = {std::hypot(Robot_Vel.X, Robot_Vel.Y), Robot_Vel.Z,
+                     static_cast<xgc2::chassis_hold::TimeNs>(ros::Time::now().toNSec())};
+        feedback_valid_ = true;
         return true;
 
       }
@@ -447,12 +459,6 @@ int turn_on_robot::Control()
   const double frame_timeout_s = 15.0;
   while(ros::ok())
   {
-    if (!hold_provider_->healthy()) {
-      (void)ApplyHoldZero(this, 0);
-      ROS_ERROR("wheeltec chassis hold HTTP owner unavailable");
-      return 1;
-    }
-    hold_provider_->control_tick(&turn_on_robot::ApplyHoldZero, this);
     Sampling_Time = (_Now - _Last_Time).toSec(); //Retrieves time interval, which is used to integrate velocity to obtain displacement (mileage) 
                                                  //获取时间间隔，用于积分速度获得位移(里程)
     _Now = ros::Time::now();
@@ -479,11 +485,19 @@ int turn_on_robot::Control()
     }
     else if ((_Now - last_frame).toSec() > frame_timeout_s)
     {
+      if (hold_) hold_->domain().set_fault(hold_robot_id_, "serial frame timeout");
       ROS_ERROR_STREAM("wheeltec_robot: no serial frames for 15s; exiting so systemd can restart");
       return 1;
     }
     
     ros::spinOnce();   //The loop waits for the callback function //循环等待回调函数
+    if (hold_) hold_->tick();
+    if (serial_write_failed_)
+    {
+      if (hold_) hold_->domain().set_fault(hold_robot_id_, "serial write failed");
+      ROS_ERROR("wheeltec_robot: serial write failed; exiting so systemd can restart");
+      return 1;
+    }
     }
   return 0;
 }
@@ -547,17 +561,36 @@ turn_on_robot::turn_on_robot():Sampling_Time(0),Power_voltage(0)
     throw std::runtime_error("wheeltec_robot serial port is not open: " + usart_port_name);
   }
   ROS_INFO_STREAM("wheeltec_robot serial port opened");
-  xgc2::chassis_hold::ServerOptions hold;
-  std::string robot_id;
-  if (!private_nh.getParam("hold_robot_id", robot_id) ||
-      !private_nh.getParam("hold_socket", hold.socket_path))
-    throw std::invalid_argument("explicit hold_robot_id and hold_socket required");
-  hold.target_id = robot_id;
-  hold.robot_ids = {robot_id};
-  hold.environment = xgc2::chassis_hold::environment_snapshot(environ);
-  if (!ApplyHoldZero(this, 0))
+  if (!private_nh.getParam("hold_robot_id", hold_robot_id_) || hold_robot_id_.empty())
+    throw std::invalid_argument("explicit hold_robot_id required");
+  int hold_port;
+  std::string hold_key_file;
+  bool hold_boot_held, hold_required;
+  private_nh.param("hold_port", hold_port, 19530);
+  private_nh.param<std::string>("hold_key_file", hold_key_file, "/etc/xgc2/chassis-hold.key");
+  private_nh.param("hold_boot_held", hold_boot_held, false);
+  private_nh.param("hold_required", hold_required, true);
+  if (hold_port < 1 || hold_port > 65535)
+    throw std::invalid_argument("hold_port must be in 1..65535");
+  if (!WriteMotion(geometry_msgs::Twist{}))
     throw std::runtime_error("wheeltec_robot initial zero write failed");
-  hold_provider_ = std::make_unique<xgc2::chassis_hold::HoldServer>(std::move(hold));
+  xgc2::chassis_hold::HoldOptions options;
+  options.robots = {hold_robot_id_};
+  options.domain.clock = [] { return ros::Time::now().toNSec(); };
+  options.domain.boot_held = hold_boot_held;
+  options.feedback = this;
+  hold_.reset(new xgc2::chassis_hold::ChassisHold(std::move(options), *this));
+  try
+  {
+    hold_endpoint_ = std::make_unique<xgc2::chassis_hold::UdpEndpoint>(hold_->service(),
+        xgc2::chassis_hold::UdpEndpointOptions{"0.0.0.0", static_cast<std::uint16_t>(hold_port), hold_key_file});
+  }
+  catch (const std::exception &e)
+  {
+    if (hold_required) throw;
+    ROS_ERROR_STREAM("HOLD unavailable: " << e.what() << "; driving because hold_required=false");
+    hold_.reset();
+  }
 }
 /**************************************
 Date: January 28, 2021
@@ -566,11 +599,10 @@ Function: Destructor, executed only once and called by the system when an object
 ***************************************/
 turn_on_robot::~turn_on_robot()
 {
-  // Native command work has stopped. Keep the provider's source lease until
-  // its final native zero and serial output context have both ended.
-  (void)ApplyHoldZero(this, 0);
+  hold_endpoint_.reset();
+  hold_.reset();
+  (void)WriteMotion(geometry_msgs::Twist{});
   try { Stm32_Serial.close(); }
   catch (const std::exception &) { ROS_ERROR_STREAM("Unable to close serial port"); }
-  hold_provider_.reset();
   ROS_INFO_STREAM("Shutting down");
 }
