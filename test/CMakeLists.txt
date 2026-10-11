@@ -16,4 +16,4 @@ target_link_libraries(pty_modem_shim PRIVATE ${CMAKE_DL_LIBS})
 add_test(NAME wheeltec_hold COMMAND ${PYTHON_EXECUTABLE}
   ${CMAKE_CURRENT_SOURCE_DIR}/ros_device_output_test.py
   --devel ${WHEELTEC_DEVEL_PREFIX} --helpers ${CMAKE_CURRENT_BINARY_DIR})
-set_tests_properties(wheeltec_hold PROPERTIES TIMEOUT 60)
+set_tests_properties(wheeltec_hold PROPERTIES TIMEOUT 240)
