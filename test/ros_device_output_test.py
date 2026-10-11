@@ -275,23 +275,28 @@ def main():
             assert boot.returncode == 0
             wait_for(lambda: wheel_pub.get_num_connections() == 0, 'boot-held subscriber did not close')
 
-            missing_key = directory/'missing.key'
-            required = driver(missing_key)
-            required.wait(timeout=6)
-            assert required.returncode != 0, 'hold_required accepted a missing key'
-            optional = driver(missing_key, '_hold_required:=false', '_hold_boot_held:=true')
-            wait_for(lambda: connected(optional), 'optional HOLD driver failed to start')
-            stamp = time.monotonic()
-            publish(.9)
-            wait_for(lambda: saw(.9, stamp), 'optional HOLD without a key did not pass commands')
-            absent = cli('describe', timeout=250, code=2)
-            assert 'reply' not in absent, 'optional HOLD exposed a service without a key'
-            stop(optional)
-            assert optional.returncode == 0
+            unreadable_key = directory/'unreadable.key'
+            unreadable_key.write_bytes(key_file.read_bytes())
+            unreadable_key.chmod(0o000)
+            assert not os.access(unreadable_key, os.R_OK), 'fixture must run without permission to read the test key'
+            for unavailable_key in (directory/'missing.key', unreadable_key):
+                required = driver(unavailable_key, '_hold_required:=true')
+                required.wait(timeout=6)
+                assert required.returncode != 0, f'hold_required accepted {unavailable_key.name}'
+                optional = driver(unavailable_key, '_hold_required:=false', '_hold_boot_held:=true')
+                wait_for(lambda: connected(optional), 'optional HOLD driver failed to start')
+                stamp = time.monotonic()
+                publish(.9)
+                wait_for(lambda: saw(.9, stamp), 'optional HOLD with an unusable key did not pass commands')
+                absent = cli('describe', timeout=250, code=2)
+                assert 'reply' not in absent, 'optional HOLD exposed a service with an unusable key'
+                stop(optional)
+                assert optional.returncode == 0
+                wait_for(lambda: wheel_pub.get_num_connections() == 0, 'optional HOLD subscriber did not close')
             assert not peer_errors, f'PTY peer failed: {peer_errors}'
             log.flush()
             log.seek(0)
-            assert log.read().count('HOLD unavailable:') == 1, 'optional key error was not logged exactly once'
+            assert log.read().count('HOLD unavailable:') == 2, 'optional key error was not logged once per driver'
             print(f'PASS Wheeltec HOLD: receipt fence, zero ticks, MCU feedback, CAS, keys, boot and shutdown '
                   f'(master {port}, UDP {hold_port}, ROS_HOME {env["ROS_HOME"]})')
         except Exception:

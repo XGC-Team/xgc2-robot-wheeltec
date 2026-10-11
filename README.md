@@ -70,8 +70,18 @@ Driver postinst copies packaged udev rules when those filenames are absent.
 
 The chassis driver serves `xgc2.chassis.hold` over `udp.v1` on port 19530.
 Set the vehicle's `XGC2_CHASSIS_ROBOT_ID` in `onboard.env` and provision a
-readable 0600 key file before enabling the chassis service. HOLD is required
-by default; an unusable key ends the driver process. See the
+key before enabling the chassis service. The robot setup user-script writes
+`/etc/xgc2/chassis-hold.key`, owned by `wheeltec:wheeltec` to match the
+service's `User=wheeltec`, with mode 0600. The directory `/etc/xgc2` is
+root-owned with mode 0755; this package ships no key. Run these commands as
+root, replacing `<keyfile>` with the supplied key file path:
+
+```sh
+install -d -o root -g root -m 0755 /etc/xgc2
+install -o wheeltec -g wheeltec -m 0600 <keyfile> /etc/xgc2/chassis-hold.key
+```
+
+HOLD is required by default; an unusable key ends the driver process. See the
 [driver HOLD contract](docs/chassis-hold-contract.md) for parameters, key
 ownership and the receipt-time command gate.
 

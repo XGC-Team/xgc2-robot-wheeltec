@@ -20,12 +20,19 @@ arguments with these defaults. Autostart reads the corresponding
 `XGC2_CHASSIS_HOLD_*` settings from `/etc/xgc2/wheeltec/onboard.env`.
 
 The robot setup user-script provisions the key; this package ships no key.
-The file contains one `<key_id> <base64 of 32 bytes>` entry per line, has
-mode 0600, and must be readable by the driver account. The design record's
-root-owned 0600 default conflicts with the shipped systemd unit's
-`User=wheeltec`. Site setup must resolve the key ownership/service-account
-conflict before enabling HOLD. With `hold_required=true`, an unreadable,
-missing, empty or malformed key ends the process non-zero. With false, the
+The file contains one `<key_id> <base64 of 32 bytes>` entry per line and is
+owned by `wheeltec:wheeltec`, the account named by the chassis unit's
+`User=wheeltec`, with mode 0600. Its directory `/etc/xgc2` is root-owned
+with mode 0755. Run the provisioning commands as root, replacing `<keyfile>`
+with the supplied key file path:
+
+```sh
+install -d -o root -g root -m 0755 /etc/xgc2
+install -o wheeltec -g wheeltec -m 0600 <keyfile> /etc/xgc2/chassis-hold.key
+```
+
+With `hold_required=true`, an unreadable, missing, empty or malformed key
+ends the process non-zero. With false, the
 driver logs the endpoint error once and drives without HOLD, including
 when `hold_boot_held` was requested.
 

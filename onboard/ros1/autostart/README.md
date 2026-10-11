@@ -21,9 +21,18 @@ Set `XGC2_CHASSIS_ROBOT_ID` to the registered robot id before enabling
 | `XGC2_CHASSIS_HOLD_BOOT_HELD` | `hold_boot_held` | `false` |
 | `XGC2_CHASSIS_HOLD_REQUIRED` | `hold_required` | `true` |
 
-Provision the key before starting the service. The unit runs as `wheeltec`,
-so a root-owned 0600 key is unreadable by it; site setup must resolve that
-ownership conflict. See the [driver HOLD contract](../../../docs/chassis-hold-contract.md).
+The robot setup user-script provisions `/etc/xgc2/chassis-hold.key` before
+starting the service; this package ships no key. The file is owned by
+`wheeltec:wheeltec`, matching the unit's `User=wheeltec`, with mode 0600.
+The directory `/etc/xgc2` is root-owned with mode 0755. Run these commands
+as root, replacing `<keyfile>` with the supplied key file path:
+
+```sh
+install -d -o root -g root -m 0755 /etc/xgc2
+install -o wheeltec -g wheeltec -m 0600 <keyfile> /etc/xgc2/chassis-hold.key
+```
+
+See the [driver HOLD contract](../../../docs/chassis-hold-contract.md).
 An unusable required key or an unrecoverable serial fault ends the driver;
 the unit's existing `Restart=always` and `RestartSec=5` restart the launch.
 

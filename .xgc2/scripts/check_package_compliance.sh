@@ -54,6 +54,7 @@ grep -q wait-roscore onboard/ros1/autostart/src/wheeltec_onboard_autostart/scrip
 grep -q wait-roscore onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-swarm-ros-bridge
 grep -q -- '--wait' onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-chassis
 grep -q 'Wants=.*xgc2-wheeltec-roscore.service' onboard/ros1/autostart/src/wheeltec_onboard_autostart/systemd/xgc2-wheeltec-chassis.service
+grep -qx 'User=wheeltec' onboard/ros1/autostart/src/wheeltec_onboard_autostart/systemd/xgc2-wheeltec-chassis.service
 grep -q 'After=.*xgc2-wheeltec-roscore.service' onboard/ros1/autostart/src/wheeltec_onboard_autostart/systemd/xgc2-wheeltec-swarm-ros-bridge.service
 if grep -q 'chassis must own ROS master' onboard/ros1/autostart/src/wheeltec_onboard_autostart/scripts/start-chassis; then
   echo "chassis must not own ROS master" >&2
