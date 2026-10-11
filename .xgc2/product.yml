@@ -1,7 +1,7 @@
 schema: xgc2.product.v1
 id: xgc2-wheeltec-onboard-ros1
 name: XGC2 Wheeltec Onboard ROS1
-version: 0.1.0-11
+version: 0.2.0-1
 kind: ros1-apt
 summary: ROS Melodic Wheeltec serial chassis, standalone ROS master, and install-only autostart.
   Official swarm_ros_bridge comes from APT; field yaml is written by
@@ -70,7 +70,7 @@ ownership:
   - /opt/ros/melodic/share/lslidar_driver
   - /opt/ros/melodic/share/lslidar_msgs
 release:
-  repository: lxk36/xgc2-robot-wheeltec
+  repository: XGC-Team/xgc2-robot-wheeltec
   ref: main
   workflow: release.yml
   ci_workflow: ci.yml
@@ -79,4 +79,4 @@ release:
     xgc2-swarm-ros-bridge: verify
     xgc2-xrpc: rebuild
   apt_versions:
-    bionic: 0.1.0-11
+    bionic: 0.2.0-1
