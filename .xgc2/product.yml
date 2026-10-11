@@ -34,7 +34,7 @@ apt:
   - ros-melodic-xgc2-wheeltec-lslidar
   depends:
   - libxgc2-chassis-hold1 (>= 0.2.0)
-  - libxgc2-xrpc-udp1
+  - libxgc2-xrpc-udp1 (>= 0.2.0)
   - ros-melodic-geometry-msgs
   - ros-melodic-nav-msgs
   - ros-melodic-roscpp
@@ -77,5 +77,6 @@ release:
   dependency_policy:
     libxgc2-chassis-hold-dev: verify
     xgc2-swarm-ros-bridge: verify
+    xgc2-xrpc: rebuild
   apt_versions:
     bionic: 0.1.0-11
